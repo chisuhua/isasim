@@ -1,0 +1,12 @@
+{
+global:
+create_model;
+get_device_cnt;
+destroy_model;
+write_register;
+read_register;
+read_mmio;
+write_mmio;
+query_adapter_info;
+local:*;
+};
