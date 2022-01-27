@@ -2,13 +2,8 @@
 #include "inc/ThreadItem.h"
 #include "inc/Warp.h"
 #include "inc/Instruction.h"
-#include "inc/Memory.h"
-#include "inc/Module.h"
-#include "inc/ComputeUnit.h"
 #include "common/intmath.h"
 #include "common/utils.h"
-
-using namespace model_gpu;
 
 void ThreadBlock::initializeCTA() {
     uint32_t threadId = 0;
@@ -220,13 +215,15 @@ void ThreadBlock::updateSIMTStack(unsigned warpId, shared_ptr<Instruction> inst,
     m_warps[warpId]->update(thread_done, next_pc, inst->reconvergence_pc,
                                inst->GetOpType(), inst->GetSize(), warp_pc);
 }
+
 shared_ptr<Instruction> ThreadBlock::GetInstruction(address_type pc) {
     if (m_insts.find(pc) == m_insts.end()) {
         uint64_t pc_address = m_kernel_addr + pc;
         // FIXME
         // uint64_t opcode = *(uint64_t*)(pc_address);
         uint64_t opcode;
-        m_cu->FetchInstruction(pc_address, &opcode, 8);
+// FIXME
+//        m_cu->FetchInstruction(pc_address, &opcode, 8);
         debug_print("Fetch PC%lx Instr: opcode %lx\n", pc, opcode);
         m_insts[pc] = make_instruction(opcode, pc_address);
         m_insts[pc]->Decode(opcode);
@@ -306,6 +303,7 @@ std::map<uint32_t, std::shared_ptr<Warp>>::iterator ThreadBlock::WarpsEnd()
 	return m_warps.end();
 }
 
+#if 0
 void ThreadBlock::ReadMemory(uint32_t warpId, uint32_t addr, void* data, uint32_t size) {
     m_warpReadCount[warpId] +=1;
     m_cu->ReadMemory(m_hw_blk_id, warpId, addr, data, size);
@@ -352,3 +350,4 @@ void ThreadBlock::WriteMemoryResp(uint32_t warpId){
     m_warpWriteCount[warpId] -=1;
     assert(m_warpWriteCount[warpId] >= 0);
 }
+#endif

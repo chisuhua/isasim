@@ -14,8 +14,6 @@
 
 // #include "inc/ExecContext.h"
 using namespace std;
-using namespace model_gpu;
-
 
 class Instruction;
 

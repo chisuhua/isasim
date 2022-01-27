@@ -1,9 +1,7 @@
 #include "inc/ThreadItem.h"
 #include "inc/Warp.h"
 #include "inc/Instruction.h"
-//#include "inc/Message.h"
 
-using namespace model;
 
 ThreadItem::ThreadItem(ThreadBlock* block,
 		uint32_t threadIdX,

@@ -4,8 +4,6 @@
 #include "inc/ThreadItem.h"
 #include "inc/OperandUtil.h"
 
-using namespace model_gpu;
-
 #define DEFINSTEND(_fmt)
 #define DEFINST2(_name)
 
