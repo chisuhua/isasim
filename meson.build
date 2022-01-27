@@ -61,7 +61,7 @@ executor_inc = ['executor',
   ]
 
 executor_src = [
-  #'executor/Compute.cpp',
+  'executor/Compute.cpp',
   #'executor/ComputeUnit.cpp',
   #'executor/CopyEngine.cpp',
   #'executor/StreamProcessor.cpp',
@@ -72,10 +72,11 @@ executor_src = [
   'executor/ThreadItem.cpp',
   'executor/Warp.cpp',
   'executor/Instruction.cpp',
-  'executor/InstructionLDS.cpp',
-  'executor/InstructionFLAT.cpp',
+  'executor/InstructionDLS.cpp',
+  'executor/InstructionSLS.cpp',
+  'executor/InstructionVLS.cpp',
   #'executor/InstructionMTBUF.cpp',
-  #'executor/InstructionMUBUF.cpp',
+  'executor/InstructionVMUBUF.cpp',
   #'executor/InstructionSMRD.cpp',
   'executor/InstructionSOP1.cpp',
   'executor/InstructionSOP2.cpp',

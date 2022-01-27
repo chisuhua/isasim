@@ -1,15 +1,15 @@
 #include "inc/Instruction.h"
 #include "inc/InstructionCommon.h"
 
-#define opcode bytes.MUBUF
+#define opcode bytes.VMUBUF
 
-void InstructionMUBUF::Decode(uint64_t _opcode) {
+void InstructionVMUBUF::Decode(uint64_t _opcode) {
     bytes.dword = _opcode;
     info.op = opcode.op;
     m_size = 8;
 }
 
-void Instruction::BUFFER_LOAD_SBYTE(ThreadItem *item)
+void InstructionVMUBUF::V_BUFFER_LOAD_SBYTE(ThreadItem *item)
 {
 
 	assert(!opcode.addr64);
@@ -76,7 +76,7 @@ void Instruction::BUFFER_LOAD_SBYTE(ThreadItem *item)
 	}*/
 }
 
-void Instruction::BUFFER_LOAD_DWORD(ThreadItem *item)
+void InstructionVMUBUF::V_BUFFER_LOAD_DWORD(ThreadItem *item)
 {
 
 	assert(!opcode.addr64);
@@ -143,7 +143,7 @@ void Instruction::BUFFER_LOAD_DWORD(ThreadItem *item)
 	}*/
 }
 
-void Instruction::BUFFER_STORE_SBYTE(ThreadItem *item)
+void InstructionVMUBUF::V_BUFFER_STORE_SBYTE(ThreadItem *item)
 {
 
 	assert(!opcode.addr64);
@@ -215,7 +215,7 @@ void Instruction::BUFFER_STORE_SBYTE(ThreadItem *item)
 	}*/
 }
 
-void Instruction::BUFFER_STORE_DWORD(ThreadItem *item)
+void InstructionVMUBUF::V_BUFFER_STORE_DWORD(ThreadItem *item)
 {
 
 	assert(!opcode.addr64);
@@ -282,7 +282,7 @@ void Instruction::BUFFER_STORE_DWORD(ThreadItem *item)
 	}*/
 }
 
-void Instruction::BUFFER_ATOMIC_ADD(ThreadItem *item)
+void InstructionVMUBUF::V_BUFFER_ATOMIC_ADD(ThreadItem *item)
 {
 
 	assert(!opcode.addr64);

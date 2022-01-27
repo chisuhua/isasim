@@ -6,27 +6,17 @@
 
 
 // #include "inc/ExecContext.h"
-using namespace std;
 
 class Instruction;
 class ThreadItem;
 class Warp;
 
-namespace model {
-class ComputeUnit;
-};
-
-using namespace model;
-
-namespace model_gpu {
-
 class ThreadBlock /*: public enable_shared_from_this<ThreadBlock>*/ {
     public:
-        ThreadBlock(std::shared_ptr<DispatchInfo> disp_info, uint32_t warp_size, uint32_t blk_threads, ComputeUnit *cu, uint32_t hw_blk_id)
+        ThreadBlock(std::shared_ptr<DispatchInfo> disp_info, uint32_t warp_size, uint32_t blk_threads, uint32_t hw_blk_id)
             : m_disp_info(disp_info)
             , m_blk_threads(blk_threads)
             , m_warp_size(warp_size)
-            , m_cu(cu)
             , m_hw_blk_id(hw_blk_id)
         {
             m_warp_count = 0;
@@ -122,9 +112,7 @@ class ThreadBlock /*: public enable_shared_from_this<ThreadBlock>*/ {
 	    bool finished = false;      // tb is finished
 
         uint32_t m_lds_mem_base;
-        ComputeUnit *m_cu;
         uint32_t m_hw_blk_id;
     friend class Instruction;
 };
 
-}
