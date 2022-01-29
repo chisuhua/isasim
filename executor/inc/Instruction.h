@@ -1,6 +1,7 @@
 #pragma once
-#include "inc/Compute.h"
-#include "inc/ExecContext.h"
+// #include "inc/Compute.h"
+//#include "inc/ExecContext.h"
+//#include "inc/ThreadBlock.h"
 #include "inc/ThreadItem.h"
 #include "inc/OperandUtil.h"
 

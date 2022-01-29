@@ -51,17 +51,21 @@ model_symbol_list = meson.current_source_dir() + '/model_symbol_export.def'
 
 DESIGN_ROOT = run_command([find_program('python', 'python3'), '-c', 'import os; print(os.environ["DESIGN_ROOT"])']).stdout().strip()
 GEM5_ROOT = run_command([find_program('python', 'python3'), '-c', 'import os; print(os.environ["GEM5_ROOT"])']).stdout().strip()
+CUDA_INSTALL_PATH = run_command([find_program('python', 'python3'), '-c', 'import os; print(os.environ["CUDA_INSTALL_PATH"])']).stdout().strip()
 
 message('DESIGN_ROOT is ' + DESIGN_ROOT)
 message('GEM5_ROOT is ' + GEM5_ROOT)
+message('CUDA_INSTALL_PATH is ' + CUDA_INSTALL_PATH)
 
 executor_link_args = link_args + ['-Wl,--version-script='+model_symbol_list]
 executor_inc = ['executor',
-  DESIGN_ROOT + '/opu/coasm'
+  DESIGN_ROOT + '/opu/coasm',
+  CUDA_INSTALL_PATH + '/include'
   ]
 
 executor_src = [
-  'executor/Compute.cpp',
+  'executor/IsaSim.cpp',
+  #'executor/Compute.cpp',
   #'executor/ComputeUnit.cpp',
   #'executor/CopyEngine.cpp',
   #'executor/StreamProcessor.cpp',
@@ -69,6 +73,7 @@ executor_src = [
   #'executor/Memory.cpp',
   #'executor/MemoryImpl.cc',
   #'executor/Mmio.cpp',
+  'executor/ThreadBlock.cpp',
   'executor/ThreadItem.cpp',
   'executor/Warp.cpp',
   'executor/Instruction.cpp',

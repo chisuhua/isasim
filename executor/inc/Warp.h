@@ -7,9 +7,10 @@
 #include <list>
 #include <memory>
 #include <cassert>
-#include "inc/Kernel.h"
-#include "inc/ExecContext.h"
-#include "inc/Compute.h"
+// #include "inc/Kernel.h"
+// #include "inc/ExecContext.h"
+// #include "inc/Compute.h"
+#include "inc/IsaSim.h"
 
 // #include "inc/ExecContext.h"
 using namespace std;

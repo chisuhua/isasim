@@ -7,10 +7,10 @@
 #include <list>
 #include <memory>
 #include <cassert>
-#include "Kernel.h"
-#include "ExecContext.h"
+//#include "Kernel.h"
+//#include "ExecContext.h"
 #include "Warp.h"
-#include "Compute.h"
+//#include "Compute.h"
 
 // #include "inc/ExecContext.h"
 using namespace std;

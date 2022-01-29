@@ -1,8 +1,7 @@
-#include "inc/Compute.h"
 #include "inc/ThreadItem.h"
 #include "inc/Warp.h"
 
-void IsaSim::initializeCTA(unsigned ctaid_cp) {
+void ThreadBlock::initializeCTA(unsigned ctaid_cp) {
   int ctaLiveThreads = 0;
 
   for (int i = 0; i < m_warp_count; i++) {
@@ -28,7 +27,7 @@ void IsaSim::initializeCTA(unsigned ctaid_cp) {
   for (int k = 0; k < m_warp_count; k++) createWarp(k);
 }
 
-unsigned createThread(kernel_info_t &kernel,
+unsigned ThreadBlock::createThread(kernel_info_t &kernel,
                              shared_ptr<ThreadItem> thread_item, int sid,
                              unsigned tid, unsigned threads_left,
                              unsigned num_threads, core_t *core,
@@ -193,7 +192,7 @@ unsigned createThread(kernel_info_t &kernel,
   return 1;
 }
 
-void IsaSim::createWarp(unsigned warpId) {
+void ThreadBlock::createWarp(unsigned warpId) {
   simt_mask_t initialMask;
   unsigned liveThreadsCount = 0;
   initialMask.set();
@@ -224,7 +223,7 @@ void IsaSim::createWarp(unsigned warpId) {
   m_liveThreadCount[warpId] = liveThreadsCount;
 }
 
-void IsaSim::execute(int inst_count, unsigned ctaid_cp) {
+void ThreadBlock::execute(int inst_count, unsigned ctaid_cp) {
   m_gpu->gpgpu_ctx->func_sim->cp_count = m_gpu->checkpoint_insn_Y;
   m_gpu->gpgpu_ctx->func_sim->cp_cta_resume = m_gpu->checkpoint_CTA_t;
   initializeCTA(ctaid_cp);
@@ -293,7 +292,7 @@ void IsaSim::execute(int inst_count, unsigned ctaid_cp) {
   }
 }
 
-void IsaSim::executeWarp(unsigned i, bool &allAtBarrier,
+void ThreadBlock::executeWarp(unsigned i, bool &allAtBarrier,
                                     bool &someOneLive) {
   if (!m_warpAtBarrier[i] && m_liveThreadCount[i] != 0) {
     warp_inst_t inst = getExecuteWarp(i);

@@ -1,3 +1,4 @@
+#include "inc/IsaSim.h"
 /*!
  * This class functionally executes a kernel. It uses the basic data structures and procedures in core_t
  */
