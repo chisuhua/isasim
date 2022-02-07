@@ -1,40 +1,16 @@
 #include "inc/ThreadItem.h"
+#include "inc/ThreadBlock.h"
 #include "inc/Warp.h"
 #include "inc/Instruction.h"
+#include "../../libcuda/abstract_hardware_model.h"
 
+using namespace libcuda;
 
-ThreadItem::ThreadItem(ThreadBlock* block,
-		uint32_t threadIdX,
-		uint32_t threadIdY,
-		uint32_t threadIdZ,
-		uint32_t threadId,
-		uint32_t warpId,
-		uint32_t laneId)
-{
-	m_block = block;
-	// Set absolute ids
-	m_threadIdX = threadIdX;
-	m_threadIdY = threadIdY;
-	m_threadIdZ = threadIdZ;
-	m_threadId = threadId;
-	m_warpId = warpId;
-	m_laneId = laneId;
-    m_PC = 0;
-
-    // m_kernel_addr = (uint64_t)disp_info->kernel_addr;
-    // m_kernel_args = (uint64_t)disp_info->kernel_args;
-
-	// Set the status of the thread item to be active
-	status = ThreadItemStatusActive;
-
-    // InstFuncTable.resize(Instruction::FormatCount);
-
-}
-
+void ThreadItem::registerExit() { m_cta_info->register_thread_exit(this); }
 
 void ThreadItem::Execute(shared_ptr<Instruction> inst)
 {
-  address_type pc = next_instr();
+  addr_t pc = next_instr();
 
   set_npc(pc + inst->GetSize());
 
@@ -160,14 +136,14 @@ void ThreadItem::ReadVRegMemPtr(
 void ThreadItem::ReadMemory(uint32_t addr, uint32_t size, char* data)
 {
 	// Memory pointer descriptor is stored in 2 succesive scalar registers
-    m_block->ReadMemory(m_warpId, addr, data, size);
+    // m_block->ReadMemory(m_warpId, addr, data, size);
 
 }
 
 void ThreadItem::WriteMemory(uint32_t addr, uint32_t size, char* data)
 {
 	// Memory pointer descriptor is stored in 2 succesive scalar registers
-    m_block->WriteMemory(m_warpId, addr, data, size);
+    // m_block->WriteMemory(m_warpId, addr, data, size);
 }
 
 void ThreadItem::ReadLDS(uint32_t addr, uint32_t size, char* data)
@@ -179,4 +155,25 @@ void ThreadItem::WriteLDS(uint32_t addr, uint32_t size, char* data)
 {
     assert(0);
 }
+
+
+unsigned ThreadItem::get_reduction_value(unsigned ctaid, unsigned barid) {
+  return m_block->get_reduction_value(ctaid, barid);
+}
+
+void ThreadItem::and_reduction(unsigned ctaid, unsigned barid, bool value) {
+  m_block->and_reduction(ctaid, barid, value);
+}
+
+void ThreadItem::or_reduction(unsigned ctaid, unsigned barid, bool value) {
+  m_block->or_reduction(ctaid, barid, value);
+}
+
+void ThreadItem::popc_reduction(unsigned ctaid, unsigned barid, bool value) {
+  m_block->popc_reduction(ctaid, barid, value);
+}
+
+memory_space *ThreadItem::get_global_memory() { return m_gpu->get_global_memory(); }
+memory_space *ThreadItem::get_tex_memory() { return m_gpu->get_tex_memory(); }
+memory_space *ThreadItem::get_surf_memory() { return m_gpu->get_surf_memory(); }
 

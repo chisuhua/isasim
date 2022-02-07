@@ -12,10 +12,10 @@ void InstructionSOPP::Decode(uint64_t _opcode) {
     m_is_warp_op = true;
 
     if (opcode.op == OpcodeSOPP::S_BARRIER) {
-        m_op_type = BARRIER_OP;
+        m_op_type = opu_op_t::BARRIER_OP;
     }
     if (opcode.op == OpcodeSOPP::S_WAITCNT) {
-        m_op_type = WAITCNT_OP;
+        m_op_type = opu_op_t::WAITCNT_OP;
     }
 
     if (opcode.op == OpcodeSOPP::S_EXIT) {
@@ -186,6 +186,7 @@ void InstructionSOPP::S_CBRANCH_EXECNZ(ThreadItem *item)
  * reached the barrier, wake them up */
 void InstructionSOPP::S_BARRIER(ThreadItem *item)
 {
+#if 0
 	// Suspend current wavefront at the barrier
 	GetWarp->SetBarrierInstruction(true);
 	GetWarp->SetAtBarrier(true);
@@ -211,6 +212,7 @@ void InstructionSOPP::S_BARRIER(ThreadItem *item)
 
 		// Emulator::isa_debug << misc::fmt("Group %d completed barrier\n", GetBlock->getId());
 	}
+#endif
 }
 
 void InstructionSOPP::S_WAITCNT(ThreadItem *item)

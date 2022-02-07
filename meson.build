@@ -65,6 +65,8 @@ executor_inc = ['executor',
 
 executor_src = [
   'executor/IsaSim.cpp',
+  'executor/Kernel.cpp',
+  'executor/ExecContext.cpp',
   #'executor/Compute.cpp',
   #'executor/ComputeUnit.cpp',
   #'executor/CopyEngine.cpp',
@@ -75,7 +77,7 @@ executor_src = [
   #'executor/Mmio.cpp',
   'executor/ThreadBlock.cpp',
   'executor/ThreadItem.cpp',
-  'executor/Warp.cpp',
+  #'executor/Warp.cpp',
   'executor/Instruction.cpp',
   'executor/InstructionDLS.cpp',
   'executor/InstructionSLS.cpp',

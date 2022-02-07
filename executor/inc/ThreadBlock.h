@@ -1,56 +1,118 @@
+#pragma once
 #include "inc/IsaSim.h"
+#include "inc/Instruction.h"
+#include <set>
+#include <list>
+#include <memory>
+// #include "../../libcuda/abstract_hardware_model.h"
+
+class ThreadItem;
+class WarpInst;
+
+namespace libcuda {
+class kernel_info_t;
+class gpgpu_t;
+class gpgpu_context;
+}
+
+
+class cta_info_t {
+public:
+  cta_info_t(unsigned sm_idx, libcuda::gpgpu_context *ctx);
+  void add_thread(ThreadItem *thd);
+  unsigned num_threads() const;
+  void check_cta_thread_status_and_reset();
+  void register_thread_exit(ThreadItem *thd);
+  void register_deleted_thread(ThreadItem *thd);
+  unsigned get_sm_idx() const;
+  unsigned get_bar_threads() const;
+  void inc_bar_threads();
+  void reset_bar_threads();
+
+ private:
+  // backward pointer
+  libcuda::gpgpu_context *gpgpu_ctx;
+  unsigned m_bar_threads;
+  unsigned long long m_uid;
+  unsigned m_sm_idx;
+  std::set<ThreadItem *> m_threads_in_cta;
+  std::set<ThreadItem *> m_threads_that_have_exited;
+  std::set<ThreadItem *> m_dangling_pointers;
+};
+
 /*!
  * This class functionally executes a kernel. It uses the basic data structures and procedures in core_t
  */
-class ThreadBlock: public core_t
-{
+class ThreadBlock {
 public:
-    ThreadBlock(kernel_info_t * kernel, gpgpu_sim *g, unsigned warp_size)
-        : core_t( g, kernel, warp_size, kernel->threads_per_cta() )
-    {
-        m_warpAtBarrier =  new bool [m_warp_count];
-        m_liveThreadCount = new unsigned [m_warp_count];
-    }
-    virtual ~ThreadBlock(){
-        warp_exit(0);
-        delete[] m_liveThreadCount;
-        delete[] m_warpAtBarrier;
-    }
+  ThreadBlock(libcuda::gpgpu_t *gpu, KernelInfo *kernel, libcuda::gpgpu_context *ctx, unsigned warp_size, unsigned threads_per_shader);
 
-    //! executes all warps till completion
-    void execute(int inst_count, unsigned ctaid_cp);
-    virtual void warp_exit( unsigned warp_id );
-    virtual bool warp_waiting_at_barrier( unsigned warp_id ) const
-    {
-        return (m_warpAtBarrier[warp_id] || !(m_liveThreadCount[warp_id]>0));
-    }
+  virtual ~ThreadBlock(){
+    warp_exit(0);
+    delete[] m_liveThreadCount;
+    delete[] m_warpAtBarrier;
+    free(m_thread);
+  }
 
-private:
-    void executeWarp(unsigned, bool &, bool &);
-    //initializes threads in the CTA block which we are executing
-    void initializeCTA(unsigned ctaid_cp);
-    virtual void checkExecutionStatusAndUpdate(warp_inst_t &inst, unsigned t, unsigned tid)
-    {
-    if(m_threads[tid]==NULL || m_threads[tid]->is_done()){
-        m_liveThreadCount[tid/m_warp_size]--;
-        }
-    }
+  //! executes all warps till completion
+  void execute(int inst_count, unsigned ctaid_cp);
+  void warp_exit( unsigned warp_id );
+  bool warp_waiting_at_barrier( unsigned warp_id ) const;
+  void checkExecutionStatusAndUpdate(shared_ptr<Instruction> &inst, unsigned t, unsigned tid);
 
-    unsigned createThread(kernel_info_t &kernel,
-                             shared_ptr<ThreadItem> thread_item, int sid,
+  void executeInstruction(shared_ptr<Instruction> inst, unsigned warpId);
+
+public:
+  void executeWarp(unsigned, bool &, bool &);
+  //initializes threads in the CTA block which we are executing
+  void initializeCTA(unsigned ctaid_cp);
+
+  unsigned createThread(KernelInfo &kernel,
+                             ThreadItem** thread_item, int sid,
                              unsigned tid, unsigned threads_left,
-                             unsigned num_threads, core_t *core,
+                             unsigned num_threads, ThreadBlock *tb,
                              unsigned hw_cta_id, unsigned hw_warp_id,
-                             gpgpu_t *gpu, bool isInFunctionalSimulationMode);
+                             libcuda::gpgpu_t *gpu, bool isInFunctionalSimulationMode);
 
-    // lunches the stack and set the threads count
-    void  createWarp(unsigned warpId);
+  // lunches the stack and set the threads count
+  void  createWarp(unsigned warpId);
 
-    //each warp live thread count and barrier indicator
-    unsigned * m_liveThreadCount;
-    bool* m_warpAtBarrier;
+  //each warp live thread count and barrier indicator
+  unsigned * m_liveThreadCount;
+  bool* m_warpAtBarrier;
 
-    std::map<uint32_t, std::shared_ptr<ThreadItem>> m_thread;
-    std::list<std::shared_ptr<ThreadItem> m_active_threads;
+  ThreadItem** m_thread;
+
+  bool is_thread_done(unsigned hw_thread_id) const;
+  virtual void updateSIMTStack(unsigned warpId, std::shared_ptr<Instruction> inst);
+  void initilizeSIMTStack(unsigned warp_count, unsigned warps_size);
+  void deleteSIMTStack();
+  std::shared_ptr<Instruction> getExecuteWarp(unsigned warpId);
+  void get_pdom_stack_top_info(unsigned warpId, unsigned *pc,
+                               unsigned *rpc) const;
+
+  unsigned get_warp_size() const { return m_warp_size; }
+  void and_reduction(unsigned ctaid, unsigned barid, bool value) {
+    reduction_storage[ctaid][barid] &= value;
+  }
+  void or_reduction(unsigned ctaid, unsigned barid, bool value) {
+    reduction_storage[ctaid][barid] |= value;
+  }
+  void popc_reduction(unsigned ctaid, unsigned barid, bool value) {
+    reduction_storage[ctaid][barid] += value;
+  }
+  unsigned get_reduction_value(unsigned ctaid, unsigned barid) {
+    return reduction_storage[ctaid][barid];
+  }
+
+  libcuda::gpgpu_t *m_gpu;
+  KernelInfo *m_kernel;
+  SimtStack **m_SimtStack;  // pdom based reconvergence context for each warp
+  unsigned m_warp_size;
+  unsigned m_warp_count;
+  unsigned reduction_storage[MAX_CTA_PER_SHADER][MAX_BARRIERS_PER_CTA];
+  int m_gpgpu_param_num_shaders = 1000; // FIXME
+
+  libcuda::gpgpu_context *m_gpgpu_ctx;
 };
 

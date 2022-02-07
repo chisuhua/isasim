@@ -25,6 +25,7 @@ void InstructionDLS::D_INC_U32(ThreadItem *item)
 // DS[ADDR+offset0*4] = D0; DS[ADDR+offset1*4] = D1; Write 2 Dwords
 void InstructionDLS::D_WRITE2_B32(ThreadItem *item)
 {
+#if 0
 	Register addr0;
 	Register addr1;
 	Register data0;
@@ -90,6 +91,7 @@ void InstructionDLS::D_WRITE2_B32(ThreadItem *item)
 			data1.as_float);
 	}
     */
+#endif
 }
 
 // DS[A] = D0; write a Dword.
@@ -105,12 +107,13 @@ void InstructionDLS::D_WRITE_B32(ThreadItem *item)
 	// Load address and data from registers.
 	addr.as_uint = ReadVReg(opcode.addr);
 	data0.as_uint = ReadVReg(opcode.data0);
-
+#if 0
 	if (addr.as_uint >
-            std::min(GetBlock->GetLocalMemBase(), ReadSReg(RegisterM0))) {
+        // FIXME 
+        // std::min(item->m_shared_mem, ReadSReg(RegisterM0))) {
 		assert("Invalid local memory address");
 	}
-
+#endif
 	// Global data store not supported
 	assert(!opcode.gds);
 

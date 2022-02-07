@@ -8,7 +8,7 @@
 #include <memory>
 #include <cassert>
 // #include "inc/Kernel.h"
-// #include "inc/ExecContext.h"
+#include "inc/ExecContext.h"
 // #include "inc/Compute.h"
 #include "inc/IsaSim.h"
 
@@ -16,62 +16,29 @@
 using namespace std;
 
 class Instruction;
+class ThreadBlock;
+class ThreadItem;
 
-
-typedef uint32_t symbol;
-typedef std::map<uint32_t, uint64_t> symbol_table;
-
-struct stack_entry {
-  stack_entry() {
-    m_symbol_table = NULL;
-    m_PC = 0;
-    m_RPC = -1;
-    m_return_var_src = NULL;
-    m_return_var_dst = NULL;
-    m_call_uid = 0;
-    m_valid = false;
-  }
-  stack_entry(symbol_table *s, uint32_t pc, uint32_t rpc,
-              const symbol *return_var_src, const symbol *return_var_dst,
-              unsigned call_uid) {
-    m_symbol_table = s;
-    m_PC = pc;
-    m_RPC = rpc;
-    m_return_var_src = return_var_src;
-    m_return_var_dst = return_var_dst;
-    m_call_uid = call_uid;
-    m_valid = true;
-  }
-
-  bool m_valid;
-  symbol_table *m_symbol_table;
-  unsigned m_PC;
-  unsigned m_RPC;
-  const symbol *m_return_var_src;
-  const symbol *m_return_var_dst;
-  unsigned m_call_uid;
-};
-
-
-
-class Warp
-{
   enum stack_entry_type { STACK_ENTRY_TYPE_NORMAL = 0, STACK_ENTRY_TYPE_CALL };
-    struct simt_stack_entry {
-        address_type m_pc;
+    struct SimtStack_entry {
+        addr_t m_PC;
         uint32_t m_calldepth;
         simt_mask_t m_active_mask;
-        address_type m_recvg_pc;
+        addr_t m_recvg_pc;
         uint64_t m_branch_div_cycle;
         stack_entry_type m_type;
-        simt_stack_entry()
-            : m_pc(-1),
+        SimtStack_entry()
+            : m_PC(-1),
             m_calldepth(0),
             m_active_mask(),
             m_recvg_pc(-1),
             m_branch_div_cycle(0),
             m_type(STACK_ENTRY_TYPE_NORMAL){};
     };
+
+
+class Warp
+{
 
 public:
     Warp(uint32_t warp_id, uint32_t warp_size, ThreadBlock *block)
@@ -85,28 +52,28 @@ public:
 
     void reset();
 
-    void launch(address_type start_pc, const simt_mask_t &active_mask) {
+    void launch(addr_t start_pc, const simt_mask_t &active_mask) {
         reset();
-        simt_stack_entry new_stack_entry;
-        new_stack_entry.m_pc = start_pc;
+        SimtStack_entry new_stack_entry;
+        new_stack_entry.m_PC = start_pc;
         new_stack_entry.m_calldepth = 1;
         new_stack_entry.m_active_mask = active_mask;
         new_stack_entry.m_type = STACK_ENTRY_TYPE_NORMAL;
         m_stack.push_back(new_stack_entry);
     }
 
-    void update(simt_mask_t &thread_done, addr_vector_t &next_pc,
-              address_type recvg_pc, OpType next_inst_op,
-              unsigned next_inst_size, address_type next_inst_pc);
+    void update(simt_mask_t &thread_done, std::vector<addr_t> &next_pc,
+              addr_t recvg_pc, op_type_t next_inst_op,
+              unsigned next_inst_size, addr_t next_inst_pc);
 
     const simt_mask_t &get_simt_active_mask() const {
         assert(m_stack.size() > 0);
         return m_stack.back().m_active_mask;
     }
 
-    void get_pdom_stack_top_info(address_type *pc, address_type *rpc) {
+    void get_pdom_stack_top_info(addr_t *pc, addr_t *rpc) {
         assert(m_stack.size() > 0);
-        *pc = m_stack.back().m_pc;
+        *pc = m_stack.back().m_PC;
         *rpc = m_stack.back().m_recvg_pc;
     }
 
@@ -118,16 +85,16 @@ public:
     void ActivateAllThreadItems();
     */
 
-    void AddThreadItem(std::shared_ptr<ThreadItem> item);
+    void AddThreadItem(ThreadItem* item);
     uint32_t GetWarpId() { return m_warpId; }
 private:
     uint32_t m_warpId;
 
     // The thread group it belongs to
     ThreadBlock *m_thd_blk;
-    std::vector<std::shared_ptr<ThreadItem>> m_items;
+    std::vector<ThreadItem*> m_items;
 
-    std::deque<simt_stack_entry> m_stack;
+    std::deque<SimtStack_entry> m_stack;
 
   public:
 
@@ -146,7 +113,7 @@ private:
                     const Instruction *inst, class ptx_thread_info *thread,
                     bool atomic) {
         if (!m_per_scalar_thread_valid) {
-            m_items.resize(MAX_WARP_SIZE);
+            m_items.resize(MAX_WARPSIZE);
             m_per_scalar_thread_valid = true;
             if (atomic) m_isatomic = true;
         }
@@ -210,7 +177,7 @@ private:
 	unsigned getSregUint(int sreg_id) const;
 	void setSregUint(int id, unsigned int value);
 
-    address_type GetWarpPC() { return m_PC;}
+    addr_t GetWarpPC() { return m_PC;}
 	void SetWarpPC(unsigned pc) { m_PC = pc; }
 	void IncWarpPC(int increment) { m_PC += increment; }
 

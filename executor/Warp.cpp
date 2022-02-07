@@ -18,30 +18,30 @@ void Warp::set_warp_active_mask(const active_mask_t &active, bool isatomic) {
   */
 }
 
-void Warp::update(simt_mask_t &thread_done, addr_vector_t &next_pc,
-                  address_type recvg_pc, OpType next_inst_op,
-                  uint32_t next_inst_size, address_type next_inst_pc) {
+void Warp::update(simt_mask_t &thread_done, std::vector<addr_t> &next_pc,
+                  addr_t recvg_pc, op_type_t next_inst_op,
+                  uint32_t next_inst_size, addr_t next_inst_pc) {
     assert(m_stack.size() > 0);
 
     assert(next_pc.size() == m_warp_size);
 
     simt_mask_t top_active_mask = m_stack.back().m_active_mask;
-    address_type top_recvg_pc = m_stack.back().m_recvg_pc;
-    address_type top_pc = m_stack.back().m_pc;    // the pc of the instruction just executed
+    addr_t top_recvg_pc = m_stack.back().m_recvg_pc;
+    addr_t top_pc = m_stack.back().m_PC;    // the pc of the instruction just executed
     stack_entry_type top_type = m_stack.back().m_type;
     assert(top_pc == next_inst_pc);
     assert(top_active_mask.any());
 
-    const address_type null_pc = -1;
+    const addr_t null_pc = -1;
     bool warp_diverged = false;
-    address_type new_recvg_pc = null_pc;
+    addr_t new_recvg_pc = null_pc;
     uint32_t num_divergent_paths = 0;
 
-    std::map<address_type, simt_mask_t> divergent_paths;
+    std::map<addr_t, simt_mask_t> divergent_paths;
     while (top_active_mask.any()) {
         // extract a group of threads with the same next PC among the active threads
         // in the warp
-        address_type tmp_next_pc = null_pc;
+        addr_t tmp_next_pc = null_pc;
         simt_mask_t tmp_active_mask;
         for (int i = m_warp_size - 1; i >= 0; i--) {
             if (top_active_mask.test(i)) {    // is this thread active?
@@ -67,10 +67,10 @@ void Warp::update(simt_mask_t &thread_done, addr_vector_t &next_pc,
         num_divergent_paths++;
     }
 
-    address_type not_taken_pc = next_inst_pc + next_inst_size;
+    addr_t not_taken_pc = next_inst_pc + next_inst_size;
     assert(num_divergent_paths <= 2);
     for (uint32_t i = 0; i < num_divergent_paths; i++) {
-        address_type tmp_next_pc = null_pc;
+        addr_t tmp_next_pc = null_pc;
         simt_mask_t tmp_active_mask;
         tmp_active_mask.reset();
         if (divergent_paths.find(not_taken_pc) != divergent_paths.end()) {
@@ -79,7 +79,7 @@ void Warp::update(simt_mask_t &thread_done, addr_vector_t &next_pc,
             tmp_active_mask = divergent_paths[tmp_next_pc];
             divergent_paths.erase(tmp_next_pc);
         } else {
-            std::map<address_type, simt_mask_t>::iterator it =
+            std::map<addr_t, simt_mask_t>::iterator it =
                     divergent_paths.begin();
             tmp_next_pc = it->first;
             tmp_active_mask = divergent_paths[tmp_next_pc];
@@ -87,25 +87,25 @@ void Warp::update(simt_mask_t &thread_done, addr_vector_t &next_pc,
         }
 
         // HANDLE THE SPECIAL CASES FIRST
-        if (next_inst_op == CALL_OPS) {
+        if (next_inst_op == opu_op_t::CALL_OPS) {
             // Since call is not a divergent instruction, all threads should have
             // executed a call instruction
             assert(num_divergent_paths == 1);
 
-            simt_stack_entry new_stack_entry;
-            new_stack_entry.m_pc = tmp_next_pc;
+            SimtStack_entry new_stack_entry;
+            new_stack_entry.m_PC = tmp_next_pc;
             new_stack_entry.m_active_mask = tmp_active_mask;
             new_stack_entry.m_branch_div_cycle = m_branch_div_cycle;
             new_stack_entry.m_type = STACK_ENTRY_TYPE_CALL;
             m_stack.push_back(new_stack_entry);
             return;
-        } else if (next_inst_op == RET_OPS && top_type == STACK_ENTRY_TYPE_CALL) {
+        } else if (next_inst_op == opu_op_t::RET_OPS && top_type == STACK_ENTRY_TYPE_CALL) {
             // pop the CALL Entry
             assert(num_divergent_paths == 1);
             m_stack.pop_back();
 
             assert(m_stack.size() > 0);
-            m_stack.back().m_pc = tmp_next_pc;    // set the PC of the stack top entry
+            m_stack.back().m_PC = tmp_next_pc;    // set the PC of the stack top entry
                                                                                     // to return PC from    the call stack;
             // Check if the New top of the stack is reconverging
             if (tmp_next_pc == m_stack.back().m_recvg_pc &&
@@ -130,9 +130,9 @@ void Warp::update(simt_mask_t &thread_done, addr_vector_t &next_pc,
             // stack
             new_recvg_pc = recvg_pc;
             if (new_recvg_pc != top_recvg_pc) {
-                m_stack.back().m_pc = new_recvg_pc;
+                m_stack.back().m_PC = new_recvg_pc;
                 m_stack.back().m_branch_div_cycle = m_branch_div_cycle;
-                m_stack.push_back(simt_stack_entry());
+                m_stack.push_back(SimtStack_entry());
             }
         }
 
@@ -140,7 +140,7 @@ void Warp::update(simt_mask_t &thread_done, addr_vector_t &next_pc,
         if (warp_diverged && tmp_next_pc == new_recvg_pc) continue;
 
         // update the current top of pdom stack
-        m_stack.back().m_pc = tmp_next_pc;
+        m_stack.back().m_PC = tmp_next_pc;
         m_stack.back().m_active_mask = tmp_active_mask;
         if (warp_diverged) {
             m_stack.back().m_calldepth = 0;
@@ -149,7 +149,7 @@ void Warp::update(simt_mask_t &thread_done, addr_vector_t &next_pc,
             m_stack.back().m_recvg_pc = top_recvg_pc;
         }
 
-        m_stack.push_back(simt_stack_entry());
+        m_stack.push_back(SimtStack_entry());
     }
     assert(m_stack.size() > 0);
     m_stack.pop_back();
@@ -159,9 +159,9 @@ void Warp::update(simt_mask_t &thread_done, addr_vector_t &next_pc,
     }
 }
 /*
-void simt_stack::print(FILE *fout) const {
+void SimtStack::print(FILE *fout) const {
     for (unsigned k = 0; k < m_stack.size(); k++) {
-        simt_stack_entry stack_entry = m_stack[k];
+        SimtStack_entry stack_entry = m_stack[k];
         if (k == 0) {
             fprintf(fout, "w%02d %1u ", m_warp_id, k);
         } else {
@@ -199,7 +199,7 @@ void Warp::ActivateAllThreadItems()
 }
 */
 
-void Warp::AddThreadItem(std::shared_ptr<ThreadItem> item)
+void Warp::AddThreadItem(ThreadItem* item)
 {
 	this->m_items.push_back(item);
 }

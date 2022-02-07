@@ -1,6 +1,23 @@
 #pragma once
 
+#include "../libcuda/abstract_hardware_model.h"
+#include "inc/ExecContext.h"
 #include <inttypes.h>
+
+class ThreadItem;
+struct KernelParam {
+  const void *pdata;
+  int type;
+  size_t size;
+  size_t offset;
+};
+
+namespace libcuda {
+class memory_space_t;
+class gpgpu_context;
+class CUstream_st;
+}
+
 // we expect block block level in compute unit
 // for grid level, it have gridStartX/Y/Z is used by CP
 #define SHADER_ABI_USER_DATA_REGISTER_NUM_MAX 32
@@ -63,58 +80,98 @@ union SHADER_ABI_THREADBLOCK_DIM {
 };
 
 struct DispatchInfo {
-    uint64_t    kernel_addr;
-    void*       kernel_args;
-    uint64_t    startPC;
-    uint32_t    gridDimX;
-    uint32_t    gridDimY;
-    uint32_t    gridDimZ;
-    uint32_t    blockIdX;
-    uint32_t    blockIdY;
-    uint32_t    blockIdZ;
-    uint16_t    blockDimX;
-    uint16_t    blockDimY;
-    uint16_t    blockDimZ;
+    uint64_t    kernel_prog_addr;
+    uint64_t    kernel_param_addr;
+    uint64_t    kernel_name_addr;
+    uint64_t    start_pC;
+    uint32_t    grid_dim_x;
+    uint32_t    grid_dim_y;
+    uint32_t    grid_dim_z;
+    uint32_t    block_idx;
+    uint32_t    block_idy;
+    uint32_t    block_idz;
+    uint16_t    block_dim_x;
+    uint16_t    block_dim_y;
+    uint16_t    block_dim_z;
     SHADER_ABI_KERNEL_CONTROL kernel_ctrl;
     SHADER_ABI_KERNEL_MODE    kernel_mode;
     SHADER_ABI_KERNEL_RESOURCE  kernel_resource;
     // SHADER_ABI_THREADBLOCK_DIM block_dim;
     uint32_t    userSreg[SHADER_ABI_USER_DATA_REGISTER_NUM_MAX];
+    int lmem;
+    int smem;
+    int cmem;
+    int gmem;
+    int regs;
 };
 
-
-#if 0
-struct dim3comp {
-  bool operator()(const dim3 &a, const dim3 &b) const {
-    if (a.z < b.z)
-      return true;
-    else if (a.y < b.y)
-      return true;
-    else if (a.x < b.x)
-      return true;
-    else
-      return false;
-  }
-};
-
-void increment_x_then_y_then_z(dim3 &i, const dim3 &bound);
-
-class kernel_info_t {
+class ParamInfo {
  public:
-  //   kernel_info_t()
-  //   {
-  //      m_valid=false;
-  //      m_kernel_entry=NULL;
-  //      m_uid=0;
-  //      m_num_cores_running=0;
-  //      m_param_mem=NULL;
-  //   }
-  kernel_info_t(dim3 gridDim, dim3 blockDim, class function_info *entry);
-  kernel_info_t(
-      dim3 gridDim, dim3 blockDim, class function_info *entry,
-      std::map<std::string, const struct cudaArray *> nameToCudaArray,
-      std::map<std::string, const struct textureInfo *> nameToTextureInfo);
-  ~kernel_info_t();
+  ParamInfo() {
+    m_valid = false;
+    m_value_set = false;
+    m_size = 0;
+    m_is_ptr = false;
+  }
+  /*
+  ParamInfo(std::string name, int type, size_t size, bool is_ptr,
+             memory_space_t ptr_space) {
+    m_valid = true;
+    m_value_set = false;
+    m_name = name;
+    m_type = type;
+    m_size = size;
+    m_is_ptr = is_ptr;
+    m_ptr_space = ptr_space;
+  }
+  */
+  void add_data(KernelParam v) {
+    assert((!m_value_set) ||
+           (m_value.size == v.size));  // if this fails concurrent kernel
+                                       // launches might execute incorrectly
+    m_value_set = true;
+    m_value = v;
+  }
+  void add_offset(unsigned offset) { m_offset = offset; }
+  unsigned get_offset() {
+    assert(m_valid);
+    return m_offset;
+  }
+  std::string get_name() const {
+    assert(m_valid);
+    return m_name;
+  }
+  int get_type() const {
+    assert(m_valid);
+    return m_type;
+  }
+  KernelParam get_value() const {
+    assert(m_value_set);
+    return m_value;
+  }
+  size_t get_size() const {
+    assert(m_valid);
+    return m_size;
+  }
+  bool is_ptr_shared() const ;
+
+ private:
+  bool m_valid;
+  std::string m_name;
+  int m_type;
+  size_t m_size;
+  bool m_value_set;
+  KernelParam m_value;
+  unsigned m_offset;
+  bool m_is_ptr;
+  libcuda::memory_space_t m_ptr_space;
+};
+
+class KernelInfo {
+public:
+  KernelInfo(DispatchInfo &disp_info);
+  ~KernelInfo();
+  bool m_valid;
 
   void inc_running() { m_num_cores_running++; }
   void dec_running() {
@@ -123,10 +180,10 @@ class kernel_info_t {
   }
   bool running() const { return m_num_cores_running > 0; }
   bool done() const { return no_more_ctas_to_run() && !running(); }
-  class function_info *entry() {
-    return m_kernel_entry;
+
+  addr_t kernel_addr() {
+    return m_prog_addr;
   }
-  const class function_info *entry() const { return m_kernel_entry; }
 
   size_t num_blocks() const {
     return m_grid_dim.x * m_grid_dim.y * m_grid_dim.z;
@@ -140,7 +197,7 @@ class kernel_info_t {
   dim3 get_cta_dim() const { return m_block_dim; }
 
   void increment_cta_id() {
-    increment_x_then_y_then_z(m_next_cta, m_grid_dim);
+    libcuda::increment_x_then_y_then_z(m_next_cta, m_grid_dim);
     m_next_tid.x = 0;
     m_next_tid.y = 0;
     m_next_tid.z = 0;
@@ -156,7 +213,7 @@ class kernel_info_t {
   }
 
   void increment_thread_id() {
-    increment_x_then_y_then_z(m_next_tid, m_block_dim);
+    libcuda::increment_x_then_y_then_z(m_next_tid, m_block_dim);
   }
   dim3 get_next_thread_id_3d() const { return m_next_tid; }
   unsigned get_next_thread_id() const {
@@ -170,41 +227,17 @@ class kernel_info_t {
   unsigned get_uid() const { return m_uid; }
   std::string name() const;
 
-  std::list<class ptx_thread_info *> &active_threads() {
+  std::list<ThreadItem *> &active_threads() {
     return m_active_threads;
   }
-  class memory_space *get_param_memory() {
-    return m_param_mem;
-  }
+  std::list<ThreadItem  *> m_active_threads;
 
-  // The following functions access texture bindings present at the kernel's
-  // launch
-
-  const struct cudaArray *get_texarray(const std::string &texname) const {
-    std::map<std::string, const struct cudaArray *>::const_iterator t =
-        m_NameToCudaArray.find(texname);
-    assert(t != m_NameToCudaArray.end());
-    return t->second;
-  }
-
-  const struct textureInfo *get_texinfo(const std::string &texname) const {
-    std::map<std::string, const struct textureInfo *>::const_iterator t =
-        m_NameToTextureInfo.find(texname);
-    assert(t != m_NameToTextureInfo.end());
-    return t->second;
-  }
-
- private:
-  kernel_info_t(const kernel_info_t &);   // disable copy constructor
-  void operator=(const kernel_info_t &);  // disable copy operator
-
-  class function_info *m_kernel_entry;
+private:
+  KernelInfo(const KernelInfo & ); // disable copy constructor
+  void operator=(const KernelInfo & ); // disable copy operator
 
   unsigned m_uid;
-
-  // These maps contain the snapshot of the texture mappings at kernel launch
-  std::map<std::string, const struct cudaArray *> m_NameToCudaArray;
-  std::map<std::string, const struct textureInfo *> m_NameToTextureInfo;
+  static unsigned m_next_uid;
 
   dim3 m_grid_dim;
   dim3 m_block_dim;
@@ -213,44 +246,47 @@ class kernel_info_t {
 
   unsigned m_num_cores_running;
 
-  std::list<class ptx_thread_info *> m_active_threads;
-  class memory_space *m_param_mem;
+  uint64_t m_prog_addr;
+  uint64_t m_param_addr;
 
- public:
-  // Jin: parent and child kernel management for CDP
-  /*
-  void set_parent(kernel_info_t *parent, dim3 parent_ctaid, dim3 parent_tid);
-  void set_child(kernel_info_t *child);
-  void remove_child(kernel_info_t *child);
+public:
+  unsigned get_args_aligned_size();
+  // TODO schi
+  addr_t m_inst_text_base_vaddr;
+  addr_t get_inst_base_vaddr() { return m_inst_text_base_vaddr; };
+  void set_inst_base_vaddr(addr_t addr) { m_inst_text_base_vaddr = addr; };
+
+  //Jin: parent and child kernel management for CDP
+  void set_parent(KernelInfo * parent, dim3 parent_ctaid, dim3 parent_tid);
+  void set_child(KernelInfo * child);
+  void remove_child(KernelInfo * child);
   bool is_finished();
   bool children_all_finished();
   void notify_parent_finished();
-  CUstream_st *create_stream_cta(dim3 ctaid);
-  CUstream_st *get_default_stream_cta(dim3 ctaid);
-  bool cta_has_stream(dim3 ctaid, CUstream_st *stream);
+  libcuda::CUstream_st *create_stream_cta(dim3 ctaid);
+  libcuda::CUstream_st *get_default_stream_cta(dim3 ctaid);
+  bool cta_has_stream(dim3 ctaid, libcuda::CUstream_st* stream);
   void destroy_cta_streams();
   void print_parent_info();
-  kernel_info_t *get_parent() { return m_parent_kernel; }
+  KernelInfo *get_parent() { return m_parent_kernel; }
 
- private:
-  kernel_info_t *m_parent_kernel;
+  std::map<unsigned, ParamInfo> m_kernel_param_info;
+  int m_args_aligned_size;
+
+  libcuda::gpgpu_context *m_gpgpu_ctx;
+
+private:
+  KernelInfo * m_parent_kernel;
   dim3 m_parent_ctaid;
   dim3 m_parent_tid;
-  std::list<kernel_info_t *> m_child_kernels;  // child kernel launched
-  std::map<dim3, std::list<CUstream_st *>, dim3comp> m_cta_streams;  // streams created in each CTA
-  */
+  std::list<KernelInfo *> m_child_kernels; //child kernel launched
+  std::map< dim3, std::list<libcuda::CUstream_st *>, dim3comp >
+      m_cta_streams; //streams created in each CTA
 
-  // Jin: kernel timing
- public:
+//Jin: kernel timing
+public:
   unsigned long long launch_cycle;
   unsigned long long start_cycle;
   unsigned long long end_cycle;
-  unsigned m_launch_latency;
-
-  mutable bool cache_config_set;
-
-  unsigned m_kernel_TB_latency;  // this used for any CPU-GPU kernel latency and
-                                 // counted in the gpu_cycle
 };
 
-#endif

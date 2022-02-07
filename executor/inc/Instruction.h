@@ -1,6 +1,6 @@
 #pragma once
 // #include "inc/Compute.h"
-//#include "inc/ExecContext.h"
+#include "inc/ExecContext.h"
 //#include "inc/ThreadBlock.h"
 #include "inc/ThreadItem.h"
 #include "inc/OperandUtil.h"
@@ -172,7 +172,7 @@ class Instruction {
 	const char *getName() { return info.name; }
 	Bytes *getBytes() { return &bytes; }
 	uint32_t GetSize() { return m_size; }
-	OpType GetOpType() { return m_op_type; }
+	op_type_t GetOpType() { return m_op_type; }
 	bool is_exit() {
         // TODO
         return false;
@@ -185,8 +185,8 @@ class Instruction {
  public:
   Instruction() {
     m_decoded = false;
-    pc = (address_type)-1;
-    reconvergence_pc = (address_type)-1;
+    pc = (addr_t)-1;
+    reconvergence_pc = (addr_t)-1;
     bar_type = NOT_BAR;
     red_type = NOT_RED;
     bar_id = (unsigned)-1;
@@ -242,18 +242,17 @@ class Instruction {
   void set_bar_id(unsigned id) { bar_id = id; }
   void set_bar_count(unsigned count) { bar_count = count; }
 
-  address_type pc;  // program counter address of instruction
-  OpType m_op_type;       // opcode (uarch visible)
+  addr_t pc;  // program counter address of instruction
+  op_type_t m_op_type;       // opcode (uarch visible)
 
-  barrier_type bar_type;
-  reduction_type red_type;
+  barrier_type_t bar_type;
+  reduction_type_t red_type;
   unsigned bar_id;
   unsigned bar_count;
 
-  types_of_operands oprnd_type;  // code (uarch visible) identify if the
+  types_of_operands_t oprnd_type;  // code (uarch visible) identify if the
                                  // operation is an interger or a floating point
-  special_ops
-      sp_op;  // code (uarch visible) identify if int_alu, fp_alu, int_mul ....
+  special_ops_t sp_op;  // code (uarch visible) identify if int_alu, fp_alu, int_mul ....
   // operation_pipeline op_pipe;  // code (uarch visible) identify the pipeline of
                                // the operation (SP, SFU or MEM)
   // mem_operation mem_op;        // code (uarch visible) identify memory type
@@ -261,7 +260,7 @@ class Instruction {
   unsigned num_operands;
   unsigned num_regs;  // count vector operand as one register operand
 
-  address_type reconvergence_pc;  // -1 => not a branch, -2 => use function
+  addr_t reconvergence_pc;  // -1 => not a branch, -2 => use function
                                   // return address
 
   unsigned out[8];
@@ -365,3 +364,25 @@ class Instruction##_fmt : public Instruction {                     \
 
 
 shared_ptr<Instruction> make_instruction(uint64_t _opcode, unsigned int address);
+
+
+class WarpInst {
+public:
+  Instruction *inst;
+#if 0
+  addr_t get_reconvergence_pc { // -1 => not a branch, -2 => use function return address
+      return inst->reconvergence_pc;
+  }
+  op_type_t get_op() {
+      return inst->op;
+  };
+  uint32_t get_isize() {
+      return inst->isize;
+  };
+  addr_t get_pc() {
+      return inst->pc;
+  };
+#endif
+};
+
+
