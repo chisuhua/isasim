@@ -60,6 +60,7 @@ message('CUDA_INSTALL_PATH is ' + CUDA_INSTALL_PATH)
 executor_link_args = link_args + ['-Wl,--version-script='+model_symbol_list]
 executor_inc = ['executor',
   DESIGN_ROOT + '/opu/coasm',
+  DESIGN_ROOT + '/opu/umd',
   CUDA_INSTALL_PATH + '/include'
   ]
 

@@ -1,5 +1,6 @@
 #include "inc/IsaSim.h"
 #include "inc/ThreadBlock.h"
+#include "KernelDispInfo.h"
 #include <algorithm>
 #include "../../libcuda/gpgpu_context.h"
 

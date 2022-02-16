@@ -1,4 +1,5 @@
 #include "inc/Kernel.h"
+#include "KernelDispInfo.h"
 #include "../libcuda/abstract_hardware_model.h"
 #include "../libcuda/gpgpu_context.h"
 #include "../libcuda/stream_manager.h"
