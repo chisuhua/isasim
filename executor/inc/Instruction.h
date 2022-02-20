@@ -220,6 +220,10 @@ class Instruction {
   virtual void print_insn(FILE *fp) const {
     fprintf(fp, " [inst @ pc=0x%04lx] ", pc);
   }
+  void print_insn() const {
+    print_insn(stdout);
+    fflush(stdout);
+  }
 #if 0
   bool is_load() const {
       /*

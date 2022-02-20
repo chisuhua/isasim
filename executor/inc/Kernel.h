@@ -162,10 +162,10 @@ private:
 
   unsigned m_num_cores_running;
 
+public:
   uint64_t m_prog_addr;
   uint64_t m_param_addr;
 
-public:
   unsigned get_args_aligned_size();
   // TODO schi
   addr_t m_inst_text_base_vaddr;

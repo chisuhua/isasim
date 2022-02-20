@@ -8,6 +8,7 @@
 
 class ThreadItem;
 class WarpInst;
+class Warp;
 
 namespace libcuda {
 class kernel_info_t;
@@ -105,14 +106,20 @@ public:
     return reduction_storage[ctaid][barid];
   }
 
+  shared_ptr<Instruction> getInstruction(address_type pc);
+  std::map<address_type, std::shared_ptr<Instruction>> m_insts;
+
   libcuda::gpgpu_t *m_gpu;
   KernelInfo *m_kernel;
-  SimtStack **m_SimtStack;  // pdom based reconvergence context for each warp
+  Warp **m_Warp;  // pdom based reconvergence context for each warp
   unsigned m_warp_size;
   unsigned m_warp_count;
   unsigned reduction_storage[MAX_CTA_PER_SHADER][MAX_BARRIERS_PER_CTA];
   int m_gpgpu_param_num_shaders = 1000; // FIXME
 
   libcuda::gpgpu_context *m_gpgpu_ctx;
+
+  address_type m_kernel_addr;
+  address_type m_kernel_args;
 };
 

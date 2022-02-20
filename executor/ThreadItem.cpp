@@ -8,6 +8,14 @@ using namespace libcuda;
 
 void ThreadItem::registerExit() { m_cta_info->register_thread_exit(this); }
 
+shared_ptr<Instruction> ThreadItem::getInstruction(addr_t pc) {
+    return m_block->getInstruction(pc);
+};
+
+void ThreadItem::print_insn(addr_t pc, FILE *fp) {
+    getInstruction(pc)->print_insn(fp);
+};
+
 void ThreadItem::Execute(shared_ptr<Instruction> inst)
 {
   addr_t pc = next_instr();

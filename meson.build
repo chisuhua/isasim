@@ -57,17 +57,18 @@ message('DESIGN_ROOT is ' + DESIGN_ROOT)
 message('GEM5_ROOT is ' + GEM5_ROOT)
 message('CUDA_INSTALL_PATH is ' + CUDA_INSTALL_PATH)
 
-executor_link_args = link_args + ['-Wl,--version-script='+model_symbol_list]
+executor_link_args = link_args + ['-L' + meson.current_build_dir() + '/../../../libcuda', '-lcudart'] + ['-Wl,--version-script='+model_symbol_list]
 executor_inc = ['executor',
   DESIGN_ROOT + '/opu/coasm',
   DESIGN_ROOT + '/opu/umd',
+  DESIGN_ROOT + '/libcuda',
   CUDA_INSTALL_PATH + '/include'
   ]
 
 executor_src = [
   'executor/IsaSim.cpp',
   'executor/Kernel.cpp',
-  'executor/ExecContext.cpp',
+  'executor/Warp.cpp',
   #'executor/Compute.cpp',
   #'executor/ComputeUnit.cpp',
   #'executor/CopyEngine.cpp',

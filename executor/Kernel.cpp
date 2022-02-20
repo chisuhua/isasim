@@ -172,12 +172,13 @@ bool KernelInfo::cta_has_stream(dim3 ctaid, libcuda::CUstream_st *stream) {
 }
 
 void KernelInfo::print_parent_info() {
+    /* FIXME for missing name function
   if (m_parent_kernel) {
     printf("Parent %d: \'%s\', Block (%d, %d, %d), Thread (%d, %d, %d)\n",
            m_parent_kernel->get_uid(), m_parent_kernel->name().c_str(),
            m_parent_ctaid.x, m_parent_ctaid.y, m_parent_ctaid.z, m_parent_tid.x,
            m_parent_tid.y, m_parent_tid.z);
-  }
+  }*/
 }
 
 void KernelInfo::destroy_cta_streams() {

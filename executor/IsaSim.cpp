@@ -66,11 +66,11 @@ parameter which holds the data for the CUDA kernel to be executed
 void IsaSim::launch(KernelInfo &kernel, DispatchInfo &disp_info, bool openCL) {
   checkpoint *g_checkpoint;
   g_checkpoint = new checkpoint();
-
+/*
   printf(
       "GPGPU-Sim: Performing Functional Simulation, executing kernel %s...\n",
       kernel.name().c_str());
-
+*/
   unsigned max_cta_tot = max_cta(
       &disp_info, kernel.threads_per_cta(),
       m_ctx->the_gpgpusim->g_the_gpu->getShaderCoreConfig()->warp_size,
@@ -107,9 +107,9 @@ void IsaSim::launch(KernelInfo &kernel, DispatchInfo &disp_info, bool openCL) {
 
       cta.execute(cp_count, temp);
 
-#if (CUDART_VERSION >= 5000)
-      m_ctx->device_runtime->launch_all_device_kernels();
-#endif
+// #if (CUDART_VERSION >= 5000)
+//      m_ctx->device_runtime->launch_all_device_kernels();
+// #endif
     } else {
       kernel.increment_cta_id();
     }

@@ -18,6 +18,7 @@ using namespace std;
 //using namespace libcuda;
 
 class Instruction;
+class ThreadBlock;
 class cta_info_t;
 namespace libcuda {
 class gpgpu_t;
@@ -25,6 +26,15 @@ class memory_space;
 class memory_space_t;
 class dram_callback_t;
 }
+
+#if !defined(__VECTOR_TYPES_H__)
+#include "vector_types.h"
+/*
+struct dim3 {
+   unsigned int x, y, z;
+};
+*/
+#endif
 
 
 class ThreadItem
@@ -111,6 +121,8 @@ public:
 	Warp* GetWarp() const { return m_warp; }
 	void SetWarp(Warp* warp) { m_warp = warp; }
 
+    shared_ptr<Instruction> getInstruction(addr_t );
+
 	unsigned ReadSReg(int sreg);
 	void WriteSReg(int sreg, unsigned value);
 	unsigned ReadVReg(int vreg);
@@ -123,6 +135,7 @@ public:
 	void ReadVRegMemPtr(int vreg, MemoryPointer &memory_pointer);
 
 	void Execute(shared_ptr<Instruction> inst) ;
+	void print_insn(addr_t pc, FILE *fp);
 
     bool is_done() { return m_thread_done; }
 
