@@ -7,7 +7,7 @@ build_dbg() {
 	rm -rf build && mkdir build && cd build && meson .. && ninja || exit 1
 }
 
-build_dbg() {
+build_release() {
 	rm -rf build && mkdir build && cd build && meson .. --buildtype release && ninja || exit 1
 }
 

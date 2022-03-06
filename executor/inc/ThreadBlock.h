@@ -52,6 +52,7 @@ public:
     warp_exit(0);
     delete[] m_liveThreadCount;
     delete[] m_warpAtBarrier;
+    delete m_kernel;
     free(m_thread);
   }
 

@@ -63,7 +63,8 @@ unsigned max_cta(const struct DispatchInfo *disp_info,
 This function simulates the CUDA code functionally, it takes a disp_info_t
 parameter which holds the data for the CUDA kernel to be executed
 !*/
-void IsaSim::launch(KernelInfo &kernel, DispatchInfo &disp_info, bool openCL) {
+void IsaSim::launch(DispatchInfo &disp_info, bool openCL) {
+  KernelInfo *kernel = new KernelInfo(disp_info);
   checkpoint *g_checkpoint;
   g_checkpoint = new checkpoint();
 /*
@@ -72,7 +73,7 @@ void IsaSim::launch(KernelInfo &kernel, DispatchInfo &disp_info, bool openCL) {
       kernel.name().c_str());
 */
   unsigned max_cta_tot = max_cta(
-      &disp_info, kernel.threads_per_cta(),
+      &disp_info, kernel->threads_per_cta(),
       m_ctx->the_gpgpusim->g_the_gpu->getShaderCoreConfig()->warp_size,
       m_ctx->the_gpgpusim->g_the_gpu->getShaderCoreConfig()->n_thread_per_shader,
       m_ctx->the_gpgpusim->g_the_gpu->getShaderCoreConfig()
@@ -91,19 +92,18 @@ void IsaSim::launch(KernelInfo &kernel, DispatchInfo &disp_info, bool openCL) {
 
   // we excute the kernel one CTA (Block) at the time, as synchronization
   // functions work block wise
-  while (!kernel.no_more_ctas_to_run()) {
-    unsigned temp = kernel.get_next_cta_id_single();
+  while (!kernel->no_more_ctas_to_run()) {
+    unsigned temp = kernel->get_next_cta_id_single();
 
     if (cp_op == 0 ||
         (cp_op == 1 && cta_launched < cp_cta_resume &&
-         kernel.get_uid() == cp_kernel) ||
-        kernel.get_uid() < cp_kernel)  // just fro testing
+         kernel->get_uid() == cp_kernel) ||
+        kernel->get_uid() < cp_kernel)  // just fro testing
     {
       ThreadBlock cta(
-        m_gpu, &kernel, m_ctx,
+        m_gpu, kernel, m_ctx,
         m_ctx->the_gpgpusim->g_the_gpu->getShaderCoreConfig()->warp_size,
-
-        m_ctx->the_gpgpusim->g_the_gpu->getShaderCoreConfig()->n_thread_per_shader);
+        kernel->threads_per_cta());
 
       cta.execute(cp_count, temp);
 
@@ -111,7 +111,7 @@ void IsaSim::launch(KernelInfo &kernel, DispatchInfo &disp_info, bool openCL) {
 //      m_ctx->device_runtime->launch_all_device_kernels();
 // #endif
     } else {
-      kernel.increment_cta_id();
+      kernel->increment_cta_id();
     }
     cta_launched++;
   }
@@ -119,7 +119,7 @@ void IsaSim::launch(KernelInfo &kernel, DispatchInfo &disp_info, bool openCL) {
   if (cp_op == 1) {
     char f1name[2048];
     snprintf(f1name, 2048, "checkpoint_files/global_mem_%d.txt",
-             kernel.get_uid());
+             kernel->get_uid());
     g_checkpoint->store_global_mem(
         m_ctx->the_gpgpusim->g_the_gpu->get_global_memory(), f1name,
         (char *)"%08x");
@@ -132,7 +132,7 @@ void IsaSim::launch(KernelInfo &kernel, DispatchInfo &disp_info, bool openCL) {
   if (!openCL) {
     // extern stream_manager *g_stream_manager;
     m_ctx->the_gpgpusim->g_stream_manager->register_finished_kernel(
-        kernel.get_uid());
+        kernel->get_uid());
   }
 
 }

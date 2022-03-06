@@ -113,7 +113,9 @@ void cta_info_t::inc_bar_threads() { m_bar_threads++; }
 void cta_info_t::reset_bar_threads() { m_bar_threads = 0; }
 
 
-ThreadBlock::ThreadBlock(libcuda::gpgpu_t *gpu, KernelInfo * kernel, libcuda::gpgpu_context *ctx, unsigned warp_size, unsigned threads_per_shader)
+ThreadBlock::ThreadBlock(libcuda::gpgpu_t *gpu, KernelInfo* kernel, libcuda::gpgpu_context *ctx, unsigned warp_size, unsigned threads_per_shader)
+    : m_warp_size(warp_size)
+    , m_kernel(kernel)
 {
     m_kernel_addr = kernel->m_prog_addr;
     m_kernel_args = kernel->m_param_addr;
@@ -189,8 +191,8 @@ shared_ptr<Instruction> ThreadBlock::getInstruction(address_type pc) {
         // FIXME
         // uint64_t opcode = *(uint64_t*)(pc_address);
         uint64_t opcode;
-        m_gpu->get_global_memory()->read(pc, 4, &opcode);
-        // debug_print("Fetch PC%lx Instr: opcode %lx\n", pc, opcode);
+        m_gpu->get_global_memory()->read(pc_address, 4, &opcode);
+        printf("Fetch PC%lx pc_address %lx, Instr: opcode %lx\n", pc, pc_address, opcode);
         m_insts[pc] = make_instruction(opcode, pc);
         m_insts[pc]->Decode(opcode);
         return m_insts[pc];
@@ -336,7 +338,7 @@ unsigned ThreadBlock::createThread(KernelInfo &kernel,
     snprintf(buf, 512, "sstarr_%u", sid);
     sstarr_mem = new libcuda::memory_space_impl<16 * 1024>(buf, 4);
     sstarr_memory_lookup[sm_idx] = sstarr_mem;
-    cta_info_t *cta_info = new cta_info_t(sm_idx, gpu->gpgpu_ctx);
+    cta_info = new cta_info_t(sm_idx, gpu->gpgpu_ctx);
     ptx_cta_lookup[sm_idx] = cta_info;
   } else {
     if (libcuda::g_debug_execution >= 1) {
