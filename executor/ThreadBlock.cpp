@@ -191,10 +191,11 @@ shared_ptr<Instruction> ThreadBlock::getInstruction(address_type pc) {
         // FIXME
         // uint64_t opcode = *(uint64_t*)(pc_address);
         uint64_t opcode;
-        m_gpu->get_global_memory()->read(pc_address, 4, &opcode);
+        m_gpu->get_global_memory()->read(pc_address, 8, &opcode);
         printf("Fetch PC%lx pc_address %lx, Instr: opcode %lx\n", pc, pc_address, opcode);
         m_insts[pc] = make_instruction(opcode, pc);
         m_insts[pc]->Decode(opcode);
+        m_insts[pc]->pc = pc;
         return m_insts[pc];
     }
     // FIXME modify m_insts to instrubuffer

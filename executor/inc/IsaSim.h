@@ -17,7 +17,7 @@ public:
     m_gpu = gpu;
     m_ctx = ctx;
   }
-  void launch(DispatchInfo &disp_info, bool openCL = false);
+  void launch(DispatchInfo &disp_info, unsigned kernel_uid, bool openCL = false);
 
   libcuda::gpgpu_t *m_gpu;
   libcuda::gpgpu_context *m_ctx;

@@ -63,7 +63,7 @@ unsigned max_cta(const struct DispatchInfo *disp_info,
 This function simulates the CUDA code functionally, it takes a disp_info_t
 parameter which holds the data for the CUDA kernel to be executed
 !*/
-void IsaSim::launch(DispatchInfo &disp_info, bool openCL) {
+void IsaSim::launch(DispatchInfo &disp_info, unsigned kernel_uid, bool openCL) {
   KernelInfo *kernel = new KernelInfo(disp_info);
   checkpoint *g_checkpoint;
   g_checkpoint = new checkpoint();
@@ -132,7 +132,7 @@ void IsaSim::launch(DispatchInfo &disp_info, bool openCL) {
   if (!openCL) {
     // extern stream_manager *g_stream_manager;
     m_ctx->the_gpgpusim->g_stream_manager->register_finished_kernel(
-        kernel->get_uid());
+        kernel_uid, false /* no check no_more_ctas_to_run at libcuda, since we don't pass kernel_info_t to isasim*/);
   }
 
 }
