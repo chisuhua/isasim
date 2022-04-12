@@ -11,7 +11,11 @@ void InstructionSMRD::Decode(uint64_t _opcode) {
     m_is_warp_op = true;
 }
 
-void Instruction::S_BUFFER_LOAD_DWORD(ThreadItem *item)
+void InstructionSMRD::print() {
+    printf("Instruction: %s(%x)\n", opcode_str[info.op].c_str(), info.op);
+}
+
+void InstructionSMRD::S_BUFFER_LOAD_DWORD(WarpState *item, uint32_t lane_id)
 {
 	// Record access
 	GetWarp->SetScalarMemoryRead(true);
@@ -47,7 +51,7 @@ void Instruction::S_BUFFER_LOAD_DWORD(ThreadItem *item)
 	item->global_memory_access_size = 4;
 }
 
-void Instruction::S_BUFFER_LOAD_DWORDX2(ThreadItem *item)
+void Instruction::S_BUFFER_LOAD_DWORDX2(WarpState *item, uint32_t lane_id)
 {
 	// Record access
 	GetWarp->SetScalarMemoryRead(true);
@@ -89,7 +93,7 @@ void Instruction::S_BUFFER_LOAD_DWORDX2(ThreadItem *item)
 }
 
 
-void Instruction::S_BUFFER_LOAD_DWORDX4(ThreadItem *item)
+void Instruction::S_BUFFER_LOAD_DWORDX4(WarpState *item, uint32_t lane_id)
 {
 	// Record access
 	GetWarp->SetScalarMemoryRead(true);
@@ -130,7 +134,7 @@ void Instruction::S_BUFFER_LOAD_DWORDX4(ThreadItem *item)
 	item->global_memory_access_size = 4 * 4;
 }
 
-void Instruction::S_BUFFER_LOAD_DWORDX8(ThreadItem *item)
+void Instruction::S_BUFFER_LOAD_DWORDX8(WarpState *item, uint32_t lane_id)
 {
 	// Record access
 	GetWarp->SetScalarMemoryRead(true);
@@ -171,7 +175,7 @@ void Instruction::S_BUFFER_LOAD_DWORDX8(ThreadItem *item)
 	item->global_memory_access_size = 4 * 8;
 }
 
-void Instruction::S_BUFFER_LOAD_DWORDX16(ThreadItem *item)
+void Instruction::S_BUFFER_LOAD_DWORDX16(WarpState *item, uint32_t lane_id)
 {
 	// Record access
 	GetWarp->SetScalarMemoryRead(true);
@@ -212,7 +216,7 @@ void Instruction::S_BUFFER_LOAD_DWORDX16(ThreadItem *item)
 	item->global_memory_access_size = 4 * 16;
 }
 
-void Instruction::S_LOAD_DWORD(ThreadItem *item)
+void Instruction::S_LOAD_DWORD(WarpState *item, uint32_t lane_id)
 {
 	// Record access
 	GetWarp->SetScalarMemoryRead(true);
@@ -258,7 +262,7 @@ void Instruction::S_LOAD_DWORD(ThreadItem *item)
 	item->global_memory_access_size = 4 * 2;
 }
 
-void Instruction::S_LOAD_DWORDX2(ThreadItem *item)
+void Instruction::S_LOAD_DWORDX2(WarpState *item, uint32_t lane_id)
 {
 	// Record access
 	GetWarp->SetScalarMemoryRead(true);
@@ -304,7 +308,7 @@ void Instruction::S_LOAD_DWORDX2(ThreadItem *item)
 	item->global_memory_access_size = 4 * 2;
 }
 
-void Instruction::S_LOAD_DWORDX4(ThreadItem *item)
+void Instruction::S_LOAD_DWORDX4(WarpState *item, uint32_t lane_id)
 {
 	// Record access
 	GetWarp->SetScalarMemoryRead(true);
@@ -350,7 +354,7 @@ void Instruction::S_LOAD_DWORDX4(ThreadItem *item)
 	item->global_memory_access_size = 4 * 4;
 }
 
-void Instruction::S_LOAD_DWORDX8(ThreadItem *item)
+void Instruction::S_LOAD_DWORDX8(WarpState *item, uint32_t lane_id)
 {
 	// Record access
 	GetWarp->SetScalarMemoryRead(true);
@@ -396,7 +400,7 @@ void Instruction::S_LOAD_DWORDX8(ThreadItem *item)
 	item->global_memory_access_size = 4 * 8;
 }
 
-void Instruction::S_LOAD_DWORDX16(ThreadItem *item)
+void Instruction::S_LOAD_DWORDX16(WarpState *item, uint32_t lane_id)
 {
 	// Record access
 	GetWarp->SetScalarMemoryRead(true);

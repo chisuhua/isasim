@@ -2,6 +2,7 @@
 #include "inc/ThreadBlock.h"
 #include "inc/Warp.h"
 #include "inc/Instruction.h"
+#include "inc/ExecTypes.h"
 #include "../../libcuda/abstract_hardware_model.h"
 
 using namespace libcuda;
@@ -16,7 +17,7 @@ void ThreadItem::print_insn(addr_t pc, FILE *fp) {
     getInstruction(pc)->print_insn(fp);
 };
 
-void ThreadItem::Execute(shared_ptr<Instruction> inst)
+void ThreadItem::Execute(shared_ptr<Instruction> inst, WarpState *warp_state)
 {
   addr_t pc = next_instr();
 
@@ -31,7 +32,7 @@ void ThreadItem::Execute(shared_ptr<Instruction> inst)
     }
     if (inst->is_warp_op() & !this->is_leading_thread()) {
     } else {
-        inst->Execute(this);
+        inst->Execute(warp_state, m_laneId);
     }
     // Run exit instruction if exit option included
     // if (inst->is_exit()) exit_impl(inst, this);
@@ -45,6 +46,7 @@ void ThreadItem::Execute(shared_ptr<Instruction> inst)
 
 }
 
+#if 0
 uint32_t ThreadItem::ReadSReg(int sreg) {
 	return m_warp->getSregUint(sreg);
 }
@@ -55,13 +57,6 @@ void ThreadItem::WriteSReg(int sreg, uint32_t value) {
 	m_warp->setSregUint(sreg, value);
 }
 
-uint32_t ThreadItem::ReadVReg(int vreg)
-{
-	assert(vreg >= 0);
-	assert(vreg < 256);
-
-	return this->vreg[vreg].as_uint;
-}
 
 void ThreadItem::WriteVReg(int vreg, uint32_t value)
 {
@@ -163,6 +158,7 @@ void ThreadItem::WriteLDS(uint32_t addr, uint32_t size, char* data)
 {
     assert(0);
 }
+#endif
 
 
 unsigned ThreadItem::get_reduction_value(unsigned ctaid, unsigned barid) {

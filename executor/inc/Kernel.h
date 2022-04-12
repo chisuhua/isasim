@@ -2,6 +2,7 @@
 
 #include "../libcuda/abstract_hardware_model.h"
 #include "inc/ExecContext.h"
+#include "inc/KernelState.h"
 #include <inttypes.h>
 
 class ThreadItem;
@@ -85,7 +86,7 @@ class ParamInfo {
 
 class KernelInfo {
 public:
-  KernelInfo(DispatchInfo &disp_info);
+  KernelInfo(DispatchInfo *disp_info);
   ~KernelInfo();
   bool m_valid;
 
@@ -97,9 +98,9 @@ public:
   bool running() const { return m_num_cores_running > 0; }
   bool done() const { return no_more_ctas_to_run() && !running(); }
 
-  addr_t kernel_addr() {
-    return m_prog_addr;
-  }
+  // addr_t kernel_addr() {
+  //  return m_prog_addr;
+  //}
 
   size_t num_blocks() const {
     return m_grid_dim.x * m_grid_dim.y * m_grid_dim.z;
@@ -143,10 +144,10 @@ public:
   unsigned get_uid() const { return m_uid; }
   std::string name() const;
 
-  std::list<ThreadItem *> &active_threads() {
-    return m_active_threads;
+  std::list<ThreadItem *> &thread_pool() {
+    return m_thread_pool;
   }
-  std::list<ThreadItem  *> m_active_threads;
+  std::list<ThreadItem  *> m_thread_pool;
 
 private:
   KernelInfo(const KernelInfo & ); // disable copy constructor
@@ -163,10 +164,9 @@ private:
   unsigned m_num_cores_running;
 
 public:
-  uint64_t m_prog_addr;
-  uint64_t m_param_addr;
+  KernelState* state() {return m_state; };
 
-  unsigned get_args_aligned_size();
+  // unsigned get_args_aligned_size();
   // TODO schi
   addr_t m_inst_text_base_vaddr;
   addr_t get_inst_base_vaddr() { return m_inst_text_base_vaddr; };
@@ -186,6 +186,8 @@ public:
   void print_parent_info();
   KernelInfo *get_parent() { return m_parent_kernel; }
 
+  uint32_t kernel_ctrl() { return m_kernel_ctrl; }
+
   std::map<unsigned, ParamInfo> m_kernel_param_info;
   int m_args_aligned_size;
 
@@ -204,5 +206,7 @@ public:
   unsigned long long launch_cycle;
   unsigned long long start_cycle;
   unsigned long long end_cycle;
+  KernelState*  m_state;
+  uint32_t m_kernel_ctrl;
 };
 

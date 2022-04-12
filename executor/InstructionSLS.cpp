@@ -11,17 +11,22 @@ void InstructionSLS::Decode(uint64_t _opcode) {
     m_is_warp_op = true;
 }
 
-void InstructionSLS::S_LOAD_DWORD(ThreadItem *item)
+void InstructionSLS::print() {
+    printf("Instruction: %s(%x)\n", opcode_str[info.op].c_str(), info.op);
+}
+
+void InstructionSLS::S_LOAD_DWORD(WarpState *item, uint32_t lane_id)
 {
 	// Record access
-	GetWarp->SetScalarMemoryRead(true);
+	// GetWarp->SetScalarMemoryRead(true);
+    item->m_smem_read_counter++;
 
 	assert(opcode.imm);
 
 	int sbase = opcode.sbase << 1;
 
 	MemoryPointer memory_pointer;
-	ReadMemPtr(sbase, memory_pointer);
+	item->getSregMemPtr(sbase, memory_pointer);
 
 	// Calculate effective address
 	unsigned m_base = memory_pointer.addr;
@@ -34,7 +39,7 @@ void InstructionSLS::S_LOAD_DWORD(ThreadItem *item)
 	for (int i = 0; i < 1; i++)
 	{
 		// Read value from global memory
-		ReadMemory(m_addr + i * 4, 4, (char *)&value[i]);
+		ReadSMEM(m_addr + i * 4, 4, (char *)&value[i]);
 		// Store the data in the destination register
 		WriteSReg(opcode.sdst + i, value[i].as_uint);
 	}
@@ -53,21 +58,22 @@ void InstructionSLS::S_LOAD_DWORD(ThreadItem *item)
 	}*/
 
 	// Record last memory access for the detailed simulator.
-	item->global_memory_access_address = m_addr;
-	item->global_memory_access_size = 4 * 2;
+	item->m_global_memory_access_address = m_addr;
+	item->m_global_memory_access_size = 4 * 2;
 }
 
-void InstructionSLS::S_LOAD_DWORDX2(ThreadItem *item)
+void InstructionSLS::S_LOAD_DWORDX2(WarpState *item, uint32_t lane_id)
 {
 	// Record access
-	GetWarp->SetScalarMemoryRead(true);
+	// GetWarp->SetScalarMemoryRead(true);
+    item->m_smem_read_counter++;
 
 	assert(opcode.imm);
 
 	int sbase = opcode.sbase << 1;
 
 	MemoryPointer memory_pointer;
-	ReadMemPtr(sbase, memory_pointer);
+	item->getSregMemPtr(sbase, memory_pointer);
 
 	// Calculate effective address
 	unsigned m_base = memory_pointer.addr;
@@ -80,7 +86,7 @@ void InstructionSLS::S_LOAD_DWORDX2(ThreadItem *item)
 	for (int i = 0; i < 2; i++)
 	{
 		// Read value from global memory
-		ReadMemory(m_addr + i * 4, 4, (char *)&value[i]);
+		ReadSMEM(m_addr + i * 4, 4, (char *)&value[i]);
 		// Store the data in the destination register
 		WriteSReg(opcode.sdst + i, value[i].as_uint);
 	}
@@ -99,21 +105,22 @@ void InstructionSLS::S_LOAD_DWORDX2(ThreadItem *item)
 	}*/
 
 	// Record last memory access for the detailed simulator.
-	item->global_memory_access_address = m_addr;
-	item->global_memory_access_size = 4 * 2;
+	item->m_global_memory_access_address = m_addr;
+	item->m_global_memory_access_size = 4 * 2;
 }
 
-void InstructionSLS::S_LOAD_DWORDX4(ThreadItem *item)
+void InstructionSLS::S_LOAD_DWORDX4(WarpState *item, uint32_t lane_id)
 {
 	// Record access
-	GetWarp->SetScalarMemoryRead(true);
+	// GetWarp->SetScalarMemoryRead(true);
+    item->m_smem_read_counter++;
 
 	assert(opcode.imm);
 
 	int sbase = opcode.sbase << 1;
 
 	MemoryPointer memory_pointer;
-	ReadMemPtr(sbase, memory_pointer);
+	item->getSregMemPtr(sbase, memory_pointer);
 
 	// Calculate effective address
 	unsigned m_base = memory_pointer.addr;
@@ -126,7 +133,7 @@ void InstructionSLS::S_LOAD_DWORDX4(ThreadItem *item)
 	for (int i = 0; i < 4; i++)
 	{
 		// Read value from global memory
-		ReadMemory(m_addr + i * 4, 4, (char *)&value[i]);
+		ReadSMEM(m_addr + i * 4, 4, (char *)&value[i]);
 		// Store the data in the destination register
 		WriteSReg(opcode.sdst + i, value[i].as_uint);
 	}
@@ -145,21 +152,22 @@ void InstructionSLS::S_LOAD_DWORDX4(ThreadItem *item)
 	}*/
 
 	// Record last memory access for the detailed simulator.
-	item->global_memory_access_address = m_addr;
-	item->global_memory_access_size = 4 * 4;
+	item->m_global_memory_access_address = m_addr;
+	item->m_global_memory_access_size = 4 * 4;
 }
 
-void InstructionSLS::S_LOAD_DWORDX8(ThreadItem *item)
+void InstructionSLS::S_LOAD_DWORDX8(WarpState *item, uint32_t lane_id)
 {
 	// Record access
-	GetWarp->SetScalarMemoryRead(true);
+	// GetWarp->SetScalarMemoryRead(true);
+    item->m_smem_read_counter++;
 
 	assert(opcode.imm);
 
 	int sbase = opcode.sbase << 1;
 
 	MemoryPointer memory_pointer;
-	ReadMemPtr(sbase, memory_pointer);
+	item->getSregMemPtr(sbase, memory_pointer);
 
 	// Calculate effective address
 	unsigned m_base = memory_pointer.addr;
@@ -172,7 +180,7 @@ void InstructionSLS::S_LOAD_DWORDX8(ThreadItem *item)
 	for (int i = 0; i < 8; i++)
 	{
 		// Read value from global memory
-		ReadMemory(m_addr + i * 4, 4, (char *)&value[i]);
+		ReadSMEM(m_addr + i * 4, 4, (char *)&value[i]);
 		// Store the data in the destination register
 		WriteSReg(opcode.sdst + i, value[i].as_uint);
 	}
@@ -191,21 +199,22 @@ void InstructionSLS::S_LOAD_DWORDX8(ThreadItem *item)
 	}*/
 
 	// Record last memory access for the detailed simulator.
-	item->global_memory_access_address = m_addr;
-	item->global_memory_access_size = 4 * 8;
+	item->m_global_memory_access_address = m_addr;
+	item->m_global_memory_access_size = 4 * 8;
 }
 
-void InstructionSLS::S_LOAD_DWORDX16(ThreadItem *item)
+void InstructionSLS::S_LOAD_DWORDX16(WarpState *item, uint32_t lane_id)
 {
 	// Record access
-	GetWarp->SetScalarMemoryRead(true);
+	// GetWarp->SetScalarMemoryRead(true);
+    item->m_smem_read_counter++;
 
 	assert(opcode.imm);
 
 	int sbase = opcode.sbase << 1;
 
 	MemoryPointer memory_pointer;
-	ReadMemPtr(sbase, memory_pointer);
+	item->getSregMemPtr(sbase, memory_pointer);
 
 	// Calculate effective address
 	unsigned m_base = memory_pointer.addr;
@@ -218,7 +227,7 @@ void InstructionSLS::S_LOAD_DWORDX16(ThreadItem *item)
 	for (int i = 0; i < 16; i++)
 	{
 		// Read value from global memory
-		ReadMemory(m_addr + i * 4, 4, (char *)&value[i]);
+		ReadSMEM(m_addr + i * 4, 4, (char *)&value[i]);
 		// Store the data in the destination register
 		WriteSReg(opcode.sdst + i, value[i].as_uint);
 	}
@@ -237,8 +246,8 @@ void InstructionSLS::S_LOAD_DWORDX16(ThreadItem *item)
 	}*/
 
 	// Record last memory access for the detailed simulator.
-	item->global_memory_access_address = m_addr;
-	item->global_memory_access_size = 4 * 16;
+	item->m_global_memory_access_address = m_addr;
+	item->m_global_memory_access_size = 4 * 16;
 }
 
 

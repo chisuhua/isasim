@@ -38,16 +38,24 @@ void increment_x_then_y_then_z( dim3 &i, const dim3 &bound)
 }
 #endif
 
-KernelInfo::KernelInfo(DispatchInfo &disp_info) {
-  m_grid_dim = {disp_info.grid_dim_x, disp_info.grid_dim_y, disp_info.grid_dim_z};
-  m_block_dim = {disp_info.block_dim_x, disp_info.block_dim_y, disp_info.block_dim_z};
+// KernelInfo is used in control firmware, KernelState is accessed by kernel itself.
+
+KernelInfo::KernelInfo(DispatchInfo *disp_info) {
+  m_grid_dim = {disp_info->grid_dim_x, disp_info->grid_dim_y, disp_info->grid_dim_z};
+  m_block_dim = {disp_info->block_dim_x, disp_info->block_dim_y, disp_info->block_dim_z};
   m_next_cta.x = 0;
   m_next_cta.y = 0;
   m_next_cta.z = 0;
   m_next_tid = m_next_cta;
   m_num_cores_running = 0;
-  m_param_addr = disp_info.kernel_param_addr;
-  m_prog_addr = disp_info.kernel_prog_addr;
+  m_state = new KernelState(1024);  // const num is access throught icache
+  m_state->setParamAddr(disp_info->kernel_param_addr);
+  m_state->setParamSize(disp_info->kernel_param_size);
+  m_state->setProgAddr(disp_info->kernel_prog_addr);
+  m_state->setLocalAddr(disp_info->local_mem_addr);
+  m_state->setLocalSize(disp_info->local_mem_size);
+  m_kernel_ctrl = disp_info->kernel_ctrl;
+  // m_local_mem_size = disp_info.local_mem_size;
   // m_uid = (entry->gpgpu_ctx->kernel_info_m_next_uid)++;
 
   // Jin: parent and child kernel management for CDP
@@ -55,8 +63,12 @@ KernelInfo::KernelInfo(DispatchInfo &disp_info) {
 }
 
 KernelInfo::~KernelInfo() {
-  assert(m_active_threads.empty());
+  // assert(m_thread_pool.empty());
+  for (auto i : m_thread_pool) {
+      delete i;
+  }
   destroy_cta_streams();
+  delete m_state;
   // delete m_param_mem;
 }
 
@@ -98,6 +110,7 @@ bool KernelInfo::children_all_finished() {
   return true;
 }
 
+/*
 unsigned KernelInfo::get_args_aligned_size() {
   if (m_args_aligned_size >= 0) return m_args_aligned_size;
 
@@ -121,11 +134,12 @@ unsigned KernelInfo::get_args_aligned_size() {
 
   return m_args_aligned_size;
 }
+*/
 
 void KernelInfo::notify_parent_finished() {
   if (m_parent_kernel) {
     m_gpgpu_ctx->device_runtime->g_total_param_size -=
-        ((get_args_aligned_size() + 255) / 256 * 256);
+        ((m_state->getParamSize() + 255) / 256 * 256);
     m_parent_kernel->remove_child(this);
     /* FIXME
     m_gpgpu_ctx->the_gpgpusim->g_stream_manager

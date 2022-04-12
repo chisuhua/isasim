@@ -9,21 +9,25 @@ void InstructionDLS::Decode(uint64_t _opcode) {
     m_size = 8;
 }
 
+void InstructionDLS::print() {
+    printf("Instruction: %s(%x)\n", opcode_str[info.op].c_str(), info.op);
+}
+
 // DS[A] = DS[A] + D0; uint add.
-void InstructionDLS::D_ADD_U32(ThreadItem *item)
+void InstructionDLS::D_ADD_U32(WarpState *item, uint32_t lane_id)
 {
 	ISAUnimplemented(item);
 }
 
 
 // DS[A] = (DS[A] >= D0 ? 0 : DS[A] + 1); uint increment.
-void InstructionDLS::D_INC_U32(ThreadItem *item)
+void InstructionDLS::D_INC_U32(WarpState *item, uint32_t lane_id)
 {
 	ISAUnimplemented(item);
 }
 
 // DS[ADDR+offset0*4] = D0; DS[ADDR+offset1*4] = D1; Write 2 Dwords
-void InstructionDLS::D_WRITE2_B32(ThreadItem *item)
+void InstructionDLS::D_WRITE2_B32(WarpState *item, uint32_t lane_id)
 {
 #if 0
 	Register addr0;
@@ -95,7 +99,7 @@ void InstructionDLS::D_WRITE2_B32(ThreadItem *item)
 }
 
 // DS[A] = D0; write a Dword.
-void InstructionDLS::D_WRITE_B32(ThreadItem *item)
+void InstructionDLS::D_WRITE_B32(WarpState *item, uint32_t lane_id)
 {
 	Register addr;
 	Register data0;
@@ -105,8 +109,8 @@ void InstructionDLS::D_WRITE_B32(ThreadItem *item)
 	assert(!opcode.gds);
 
 	// Load address and data from registers.
-	addr.as_uint = ReadVReg(opcode.addr);
-	data0.as_uint = ReadVReg(opcode.data0);
+	addr.as_uint = ReadVReg(opcode.addr, lane_id);
+	data0.as_uint = ReadVReg(opcode.data0, lane_id);
 #if 0
 	if (addr.as_uint >
         // FIXME 
@@ -121,17 +125,19 @@ void InstructionDLS::D_WRITE_B32(ThreadItem *item)
 	if (opcode.gds) {
 		assert(0);
 	} else {
-		WriteLDS(addr.as_uint, 4, (char *)&data0.as_uint);
+		WriteLDS(addr.as_uint, 4, (char*)&data0.as_uint);
 	}
 
 	// Record last memory access for the detailed simulator.
 	if (opcode.gds) {
 		assert(0);
 	} else {
+#if 0
 		item->lds_access_count = 1;
 		item->lds_access[0].type = MemoryAccessWrite;
 		item->lds_access[0].addr = addr.as_uint;
 		item->lds_access[0].size = 4;
+#endif
 	}
 
 	// Print isa debug information.
@@ -149,7 +155,7 @@ void InstructionDLS::D_WRITE_B32(ThreadItem *item)
 }
 
 // DS[A] = D0[7:0]; byte write. 
-void InstructionDLS::D_WRITE_B8(ThreadItem *item)
+void InstructionDLS::D_WRITE_B8(WarpState *item, uint32_t lane_id)
 {
 	Register addr;
 	Register data0;
@@ -159,8 +165,8 @@ void InstructionDLS::D_WRITE_B8(ThreadItem *item)
 	assert(!opcode.gds);
 
 	// Load address and data from registers.
-	addr.as_uint = ReadVReg(opcode.addr);
-	data0.as_uint = ReadVReg(opcode.data0);
+	addr.as_uint = ReadVReg(opcode.addr, lane_id);
+	data0.as_uint = ReadVReg(opcode.data0, lane_id);
 
 	// Global data store not supported
 	assert(!opcode.gds);
@@ -176,10 +182,12 @@ void InstructionDLS::D_WRITE_B8(ThreadItem *item)
 	if (opcode.gds) {
 		assert(0);
 	} else {
+#if 0
 		item->lds_access_count = 1;
 		item->lds_access[0].type = MemoryAccessWrite;
 		item->lds_access[0].addr = addr.as_uint;
 		item->lds_access[0].size = 1;
+#endif
 	}
 
 	// Print isa debug information.
@@ -197,7 +205,7 @@ void InstructionDLS::D_WRITE_B8(ThreadItem *item)
 }
 
 // DS[A] = D0[15:0]; short write. 
-void InstructionDLS::D_WRITE_B16(ThreadItem *item)
+void InstructionDLS::D_WRITE_B16(WarpState *item, uint32_t lane_id)
 {
 	Register addr;
 	Register data0;
@@ -207,8 +215,8 @@ void InstructionDLS::D_WRITE_B16(ThreadItem *item)
 	assert(!opcode.gds);
 
 	// Load address and data from registers.
-	addr.as_uint = ReadVReg(opcode.addr);
-	data0.as_uint = ReadVReg(opcode.data0);
+	addr.as_uint = ReadVReg(opcode.addr, lane_id);
+	data0.as_uint = ReadVReg(opcode.data0, lane_id);
 
 	// Global data store not supported
 	assert(!opcode.gds);
@@ -224,10 +232,12 @@ void InstructionDLS::D_WRITE_B16(ThreadItem *item)
 	if (opcode.gds) {
 		assert(0);
 	} else {
+#if 0
 		item->lds_access_count = 1;
 		item->lds_access[0].type = MemoryAccessWrite;
 		item->lds_access[0].addr = addr.as_uint;
 		item->lds_access[0].size = 2;
+#endif
 	}
 
 	// Print isa debug information.
@@ -246,7 +256,7 @@ void InstructionDLS::D_WRITE_B16(ThreadItem *item)
 }
 
 // R = DS[A]; Dword read.
-void InstructionDLS::D_READ_B32(ThreadItem *item)
+void InstructionDLS::D_READ_B32(WarpState *item, uint32_t lane_id)
 {
 	Register addr;
 	Register data;
@@ -256,7 +266,7 @@ void InstructionDLS::D_READ_B32(ThreadItem *item)
 	assert(!opcode.gds);
 
 	// Load address from register.
-	addr.as_uint = ReadVReg(opcode.addr);
+	addr.as_uint = ReadVReg(opcode.addr, lane_id);
 
 	// Global data store not supported
 	assert(!opcode.gds);
@@ -269,16 +279,18 @@ void InstructionDLS::D_READ_B32(ThreadItem *item)
 	}
 
 	// Write results.
-	WriteVReg(opcode.vdst, data.as_uint);
+	WriteVReg(opcode.vdst, data.as_uint, lane_id);
 
 	// Record last memory access for the detailed simulator.
 	if (opcode.gds) {
 		assert(0);
 	} else {
+#if 0
 		item->lds_access_count = 1;
 		item->lds_access[0].type = MemoryAccessRead;
 		item->lds_access[0].addr = addr.as_uint;
 		item->lds_access[0].size = 4;
+#endif
 	}
 
 	// Print isa debug information.
@@ -292,7 +304,7 @@ void InstructionDLS::D_READ_B32(ThreadItem *item)
 }
 
 // R = DS[ADDR+offset0*4], R+1 = DS[ADDR+offset1*4]. Read 2 Dwords.
-void InstructionDLS::D_READ2_B32(ThreadItem *item)
+void InstructionDLS::D_READ2_B32(WarpState *item, uint32_t lane_id)
 {
 	Register addr;
 	Register data0;
@@ -301,7 +313,7 @@ void InstructionDLS::D_READ2_B32(ThreadItem *item)
 	assert(!opcode.gds);
 
 	// Load address from register.
-	addr.as_uint = ReadVReg(opcode.addr);
+	addr.as_uint = ReadVReg(opcode.addr, lane_id);
 
 	// Global data store not supported
 	assert(!opcode.gds);
@@ -317,8 +329,8 @@ void InstructionDLS::D_READ2_B32(ThreadItem *item)
 	}
 
 	// Write results.
-	WriteVReg(opcode.vdst, data0.as_uint);
-	WriteVReg(opcode.vdst+1, data1.as_uint);
+	WriteVReg(opcode.vdst, data0.as_uint, lane_id);
+	WriteVReg(opcode.vdst+1, data1.as_uint, lane_id);
 
 	// Record last memory access for the detailed simulator.
 	if (opcode.gds) {
@@ -327,6 +339,7 @@ void InstructionDLS::D_READ2_B32(ThreadItem *item)
 		// If offset1 != 1, then the following is incorrect
 		assert(opcode.offset0 == 0);
 		assert(opcode.offset1 == 1);
+#if 0
 		item->lds_access_count = 2;
 		item->lds_access[0].type = MemoryAccessRead;
 		item->lds_access[0].addr = addr.as_uint;
@@ -334,6 +347,7 @@ void InstructionDLS::D_READ2_B32(ThreadItem *item)
 		item->lds_access[1].type = MemoryAccessRead;
 		item->lds_access[1].addr = addr.as_uint + 4;
 		item->lds_access[1].size = 4;
+#endif
 	}
 
 	// Print isa debug information.
@@ -349,7 +363,7 @@ void InstructionDLS::D_READ2_B32(ThreadItem *item)
 }
 
 // R = signext(DS[A][7:0]}; signed byte read.
-void InstructionDLS::D_READ_I8(ThreadItem *item)
+void InstructionDLS::D_READ_I8(WarpState *item, uint32_t lane_id)
 {
 	Register addr;
 	Register data;
@@ -359,7 +373,7 @@ void InstructionDLS::D_READ_I8(ThreadItem *item)
 	assert(!opcode.gds);
 
 	// Load address from register.
-	addr.as_uint = ReadVReg(opcode.addr);
+	addr.as_uint = ReadVReg(opcode.addr, lane_id);
 
 	// Global data store not supported
 	assert(!opcode.gds);
@@ -376,16 +390,18 @@ void InstructionDLS::D_READ_I8(ThreadItem *item)
 	data.as_int = (int) data.as_byte[0];
 
 	// Write results.
-	WriteVReg(opcode.vdst, data.as_uint);
+	WriteVReg(opcode.vdst, data.as_uint, lane_id);
 
 	// Record last memory access for the detailed simulator.
 	if (opcode.gds) {
 		assert(0);
 	} else {
+#if 0
 		item->lds_access_count = 1;
 		item->lds_access[0].type = MemoryAccessRead;
 		item->lds_access[0].addr = addr.as_uint;
 		item->lds_access[0].size = 1;
+#endif
 	}
 
 	// Print isa debug information.
@@ -398,7 +414,7 @@ void InstructionDLS::D_READ_I8(ThreadItem *item)
 }
 
 // R = {24’h0,DS[A][7:0]}; unsigned byte read.
-void InstructionDLS::D_READ_U8(ThreadItem *item)
+void InstructionDLS::D_READ_U8(WarpState *item, uint32_t lane_id)
 {
 	Register addr;
 	Register data;
@@ -408,7 +424,7 @@ void InstructionDLS::D_READ_U8(ThreadItem *item)
 	assert(!opcode.gds);
 
 	// Load address from register.
-	addr.as_uint = ReadVReg(opcode.addr);
+	addr.as_uint = ReadVReg(opcode.addr, lane_id);
 
 	// Global data store not supported
 	assert(!opcode.gds);
@@ -425,7 +441,7 @@ void InstructionDLS::D_READ_U8(ThreadItem *item)
 	data.as_uint = (unsigned) data.as_ubyte[0];
 
 	// Write results.
-	WriteVReg(opcode.vdst, data.as_uint);
+	WriteVReg(opcode.vdst, data.as_uint, lane_id);
 
 	// Record last memory access for the detailed simulator.
 	if (opcode.gds)
@@ -434,10 +450,12 @@ void InstructionDLS::D_READ_U8(ThreadItem *item)
 	}
 	else
 	{
+#if 0
 		item->lds_access_count = 1;
 		item->lds_access[0].type = MemoryAccessRead;
 		item->lds_access[0].addr = addr.as_uint;
 		item->lds_access[0].size = 1;
+#endif
 	}
 
 	// Print isa debug information.
@@ -450,7 +468,7 @@ void InstructionDLS::D_READ_U8(ThreadItem *item)
 }
 
 // R = signext(DS[A][15:0]}; signed short read.
-void InstructionDLS::D_READ_I16(ThreadItem *item)
+void InstructionDLS::D_READ_I16(WarpState *item, uint32_t lane_id)
 {
 	Register addr;
 	Register data;
@@ -460,7 +478,7 @@ void InstructionDLS::D_READ_I16(ThreadItem *item)
 	assert(!opcode.gds);
 
 	// Load address from register.
-	addr.as_uint = ReadVReg(opcode.addr);
+	addr.as_uint = ReadVReg(opcode.addr, lane_id);
 
 	// Global data store not supported
 	assert(!opcode.gds);
@@ -479,7 +497,7 @@ void InstructionDLS::D_READ_I16(ThreadItem *item)
 	data.as_int = (int) data.as_short[0];
 
 	// Write results.
-	WriteVReg(opcode.vdst, data.as_uint);
+	WriteVReg(opcode.vdst, data.as_uint, lane_id);
 
 	// Record last memory access for the detailed simulator.
 	if (opcode.gds)
@@ -488,10 +506,12 @@ void InstructionDLS::D_READ_I16(ThreadItem *item)
 	}
 	else
 	{
+#if 0
 		item->lds_access_count = 1;
 		item->lds_access[0].type = MemoryAccessRead;
 		item->lds_access[0].addr = addr.as_uint;
 		item->lds_access[0].size = 2;
+#endif
 	}
 
 	// Print isa debug information.
@@ -505,7 +525,7 @@ void InstructionDLS::D_READ_I16(ThreadItem *item)
 }
 
 // R = {16’h0,DS[A][15:0]}; uint16_t read.
-void InstructionDLS::D_READ_U16(ThreadItem *item)
+void InstructionDLS::D_READ_U16(WarpState *item, uint32_t lane_id)
 {
 	Register addr;
 	Register data;
@@ -515,7 +535,7 @@ void InstructionDLS::D_READ_U16(ThreadItem *item)
 	assert(!opcode.gds);
 
 	// Load address from register.
-	addr.as_uint = ReadVReg(opcode.addr);
+	addr.as_uint = ReadVReg(opcode.addr, lane_id);
 
 	// Global data store not supported
 	assert(!opcode.gds);
@@ -533,16 +553,18 @@ void InstructionDLS::D_READ_U16(ThreadItem *item)
 	data.as_uint = (unsigned) data.as_ushort[0];
 
 	// Write results.
-	WriteVReg(opcode.vdst, data.as_uint);
+	WriteVReg(opcode.vdst, data.as_uint, lane_id);
 
 	// Record last memory access for the detailed simulator.
 	if (opcode.gds) {
 		assert(0);
 	} else {
+#if 0
 		item->lds_access_count = 1;
 		item->lds_access[0].type = MemoryAccessRead;
 		item->lds_access[0].addr = addr.as_uint;
 		item->lds_access[0].size = 2;
+#endif
 	}
 
 	// Print isa debug information.

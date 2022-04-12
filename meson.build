@@ -70,6 +70,7 @@ executor_src = [
   'executor/IsaSim.cpp',
   'executor/Kernel.cpp',
   'executor/Warp.cpp',
+  'executor/WarpState.cpp',
   #'executor/Compute.cpp',
   #'executor/ComputeUnit.cpp',
   #'executor/CopyEngine.cpp',

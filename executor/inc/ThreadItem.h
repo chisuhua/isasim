@@ -121,20 +121,20 @@ public:
 	Warp* GetWarp() const { return m_warp; }
 	void SetWarp(Warp* warp) { m_warp = warp; }
 
-    shared_ptr<Instruction> getInstruction(addr_t );
+    std::shared_ptr<Instruction> getInstruction(addr_t );
 
-	unsigned ReadSReg(int sreg);
-	void WriteSReg(int sreg, unsigned value);
-	unsigned ReadVReg(int vreg);
-	void WriteVReg(int vreg, unsigned value);
-	unsigned ReadReg(int reg);
-	void WriteBitmaskSReg(int sreg, unsigned value);
-	int ReadBitmaskSReg(int sreg);
-	void ReadBufferResource(int sreg, BufferDescriptor &buffer_desc);
-	void ReadMemPtr(int sreg, MemoryPointer &memory_pointer);
-	void ReadVRegMemPtr(int vreg, MemoryPointer &memory_pointer);
+	// unsigned ReadSReg(int sreg);
+	// void WriteSReg(int sreg, unsigned value);
+	// unsigned ReadVReg(int vreg);
+	// void WriteVReg(int vreg, unsigned value);
+	// unsigned ReadReg(int reg);
+	// void WriteBitmaskSReg(int sreg, unsigned value);
+	// int ReadBitmaskSReg(int sreg);
+	// void ReadBufferResource(int sreg, BufferDescriptor &buffer_desc);
+	// void ReadMemPtr(int sreg, MemoryPointer &memory_pointer);
+	// void ReadVRegMemPtr(int vreg, MemoryPointer &memory_pointer);
 
-	void Execute(shared_ptr<Instruction> inst) ;
+    void Execute(std::shared_ptr<Instruction> inst, WarpState *warp_state);
 	void print_insn(addr_t pc, FILE *fp);
 
     bool is_done() { return m_thread_done; }
@@ -209,7 +209,7 @@ private:
   // mem::Memory *lds = nullptr;
 
   // Vector registers
-  Register vreg[256];
+  // Register vreg[256];
 
   // The status of the thread item;
   ThreadItemStatus status = ThreadItemStatusActive;
@@ -231,6 +231,7 @@ public:
   void set_ctaid(dim3 ctaid) { m_ctaid = ctaid; }
   void set_ntid(dim3 tid) { m_ntid = tid; }
   void set_nctaid(dim3 cta_size) { m_nctaid = cta_size; }
+  void set_laneid(uint32_t laneid) { m_laneId = laneid; }
 
   unsigned get_hw_tid() const { return m_hw_tid; }
   unsigned get_hw_ctaid() const { return m_hw_ctaid; }
@@ -285,12 +286,12 @@ public:
 	static const int MaxLdsAccessesPerInst = 2;
 
 	/// Information for each lds access
-	MemoryAccess lds_access[MaxLdsAccessesPerInst];
-    void WriteLDS(uint32_t, uint32_t, char* value);
-    void ReadLDS(uint32_t, uint32_t, char* value);
+	// MemoryAccess lds_access[MaxLdsAccessesPerInst];
+    // void WriteLDS(uint32_t, uint32_t, char* value);
+    // void ReadLDS(uint32_t, uint32_t, char* value);
 
-    void ReadMemory(uint32_t, uint32_t, char* value);
-    void WriteMemory(uint32_t, uint32_t, char* value);
+    // void ReadMemory(uint32_t, uint32_t, char* value);
+    // void WriteMemory(uint32_t, uint32_t, char* value);
 
 friend class Instruction;
 };

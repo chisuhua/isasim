@@ -23,17 +23,20 @@ void InstructionSOPP::Decode(uint64_t _opcode) {
     }
 }
 
+void InstructionSOPP::print() {
+    printf("Instruction: %s(%x)\n", opcode_str[info.op].c_str(), info.op);
+}
 
 // End the program.
-void InstructionSOPP::S_EXIT(ThreadItem *item)
+void InstructionSOPP::S_EXIT(WarpState *item, uint32_t lane_id)
 {
-	GetWarp->SetFinished(true);     // TODO s_exit make all active thread done
-    item->m_thread_done = true;
+	item->setFinished(lane_id);     // TODO s_exit make all active thread done
+    // item->m_thread_done = true;
 	// GetBlock->incWavefrontsCompletedEmu();
 }
 
 // PC = PC + signext(SIMM16 * 4) + 4
-void InstructionSOPP::S_BRANCH(ThreadItem *item)
+void InstructionSOPP::S_BRANCH(WarpState *item, uint32_t lane_id)
 {
 	short simm16;
 	int se_simm16;
@@ -43,11 +46,11 @@ void InstructionSOPP::S_BRANCH(ThreadItem *item)
 	se_simm16 = simm16;
 
 	// Relative jump
-	GetWarp->IncWarpPC(se_simm16 * 4 + 4 - m_size);
+	item->incWarpPC(se_simm16 * 4 + 4 - m_size);
 }
 
 // if(SCC == 0) then PC = PC + signext(SIMM16 * 4) + 4; else nop.
-void InstructionSOPP::S_CBRANCH_SCC0(ThreadItem *item)
+void InstructionSOPP::S_CBRANCH_SCC0(WarpState *item, uint32_t lane_id)
 {
 	short simm16;
 	int se_simm16;
@@ -60,14 +63,14 @@ void InstructionSOPP::S_CBRANCH_SCC0(ThreadItem *item)
 		se_simm16 = simm16;
 
 		// Determine the program counter to branch to.
-		GetWarp->IncWarpPC(
+		item->incWarpPC(
 			se_simm16 * 4 + 4 - m_size);
 	}
 }
 
 
 // if(SCC == 1) then PC = PC + signext(SIMM16 * 4) + 4; else nop.
-void InstructionSOPP::S_CBRANCH_SCC1(ThreadItem *item)
+void InstructionSOPP::S_CBRANCH_SCC1(WarpState *item, uint32_t lane_id)
 {
 	short simm16;
 	int se_simm16;
@@ -86,7 +89,7 @@ void InstructionSOPP::S_CBRANCH_SCC1(ThreadItem *item)
 		se_simm16 = simm16;
 
 		// Determine the program counter to branch to.
-		GetWarp->IncWarpPC(
+		item->incWarpPC(
 			se_simm16 * 4 + 4 - m_size);
 
 	}
@@ -96,7 +99,7 @@ void InstructionSOPP::S_CBRANCH_SCC1(ThreadItem *item)
 }
 
 // if(VCC == 0) then PC = PC + signext(SIMM16 * 4) + 4; else nop.
-void InstructionSOPP::S_CBRANCH_VCCZ(ThreadItem *item)
+void InstructionSOPP::S_CBRANCH_VCCZ(WarpState *item, uint32_t lane_id)
 {
 	short simm16;
 	int se_simm16;
@@ -109,13 +112,13 @@ void InstructionSOPP::S_CBRANCH_VCCZ(ThreadItem *item)
 		se_simm16 = simm16;
 
 		// Determine the program counter to branch to.
-		GetWarp->IncWarpPC(
+		item->incWarpPC(
 			se_simm16 * 4 + 4 - m_size);
 	}
 }
 
 // if(VCC == 0) then PC = PC + signext(SIMM16 * 4) + 4; else nop.
-void InstructionSOPP::S_CBRANCH_VCCNZ(ThreadItem *item)
+void InstructionSOPP::S_CBRANCH_VCCNZ(WarpState *item, uint32_t lane_id)
 {
 	short simm16;
 	int se_simm16;
@@ -128,13 +131,13 @@ void InstructionSOPP::S_CBRANCH_VCCNZ(ThreadItem *item)
 		se_simm16 = simm16;
 
 		// Determine the program counter to branch to.
-		GetWarp->IncWarpPC(
+		item->incWarpPC(
 			se_simm16 * 4 + 4 - m_size);
 	}
 }
 
 // if(EXEC == 0) then PC = PC + signext(SIMM16 * 4) + 4; else nop.
-void InstructionSOPP::S_CBRANCH_EXECZ(ThreadItem *item)
+void InstructionSOPP::S_CBRANCH_EXECZ(WarpState *item, uint32_t lane_id)
 {
 	short simm16;
 	int se_simm16;
@@ -153,7 +156,7 @@ void InstructionSOPP::S_CBRANCH_EXECZ(ThreadItem *item)
 		se_simm16 = simm16;
 
 		// Determine the program counter to branch to.
-		GetWarp->IncWarpPC(
+		item->incWarpPC(
 			se_simm16 * 4 + 4 - m_size);
 
 	}
@@ -164,7 +167,7 @@ void InstructionSOPP::S_CBRANCH_EXECZ(ThreadItem *item)
 
 
 // if(EXEC != 0) then PC = PC + signext(SIMM16 * 4) + 4; else nop.
-void InstructionSOPP::S_CBRANCH_EXECNZ(ThreadItem *item)
+void InstructionSOPP::S_CBRANCH_EXECNZ(WarpState *item, uint32_t lane_id)
 {
 	short simm16;
 	int se_simm16;
@@ -177,19 +180,19 @@ void InstructionSOPP::S_CBRANCH_EXECNZ(ThreadItem *item)
 		se_simm16 = simm16;
 
 		// Determine the program counter to branch to.
-		GetWarp->IncWarpPC(
+		item->incWarpPC(
 			se_simm16 * 4 + 4 - m_size);
 	}
 }
 
 /* Suspend current wavefront at the barrier. If all wavefronts in work-group
  * reached the barrier, wake them up */
-void InstructionSOPP::S_BARRIER(ThreadItem *item)
+void InstructionSOPP::S_BARRIER(WarpState *item, uint32_t lane_id)
 {
 #if 0
 	// Suspend current wavefront at the barrier
-	GetWarp->SetBarrierInstruction(true);
-	GetWarp->SetAtBarrier(true);
+	item->SetBarrierInstruction(true);
+	item->SetAtBarrier(true);
 	GetBlock->IncWarpsAtBarrier();
 
 /*	Emulator::isa_debug << misc::fmt("Group %d wavefront %d reached barrier "
@@ -202,7 +205,7 @@ void InstructionSOPP::S_BARRIER(ThreadItem *item)
 
 
 	// If all wavefronts in work-group reached the barrier, wake them up
-	if (GetBlock->GetWarpsAtBarrier() == GetBlock->GetWarpsCount())
+	if (GetBlock->itemsAtBarrier() == GetBlock->itemsCount())
 	{
 		for (auto i = GetBlock->WarpsBegin(),
                 e = GetBlock->WarpsEnd(); i != e; ++i)
@@ -215,13 +218,13 @@ void InstructionSOPP::S_BARRIER(ThreadItem *item)
 #endif
 }
 
-void InstructionSOPP::S_WAITCNT(ThreadItem *item)
+void InstructionSOPP::S_WAITCNT(WarpState *item, uint32_t lane_id)
 {
 	// Nothing to do in emulation
-	GetWarp->SetMemoryWait(true);
+	item->SetMemoryWait(true);
 }
 
-void InstructionSOPP::S_PHI(ThreadItem *item)
+void InstructionSOPP::S_PHI(WarpState *item, uint32_t lane_id)
 {
 	ISAUnimplemented(item);
 }

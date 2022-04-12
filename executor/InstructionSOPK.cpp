@@ -11,8 +11,12 @@ void InstructionSOPK::Decode(uint64_t _opcode) {
     m_is_warp_op = true;
 }
 
+void InstructionSOPK::print() {
+    printf("Instruction: %s(%x)\n", opcode_str[info.op].c_str(), info.op);
+}
+
 // D.i = signext(simm16).
-void InstructionSOPK::S_MOVK_I32(ThreadItem *item)
+void InstructionSOPK::S_MOVK_I32(WarpState *item, uint32_t lane_id)
 {
 	Register simm16;
 	Register result;
@@ -32,13 +36,13 @@ void InstructionSOPK::S_MOVK_I32(ThreadItem *item)
 }
 
 //
-void InstructionSOPK::S_CMPK_LE_U32(ThreadItem *item)
+void InstructionSOPK::S_CMPK_LE_U32(WarpState *item, uint32_t lane_id)
 {
 	ISAUnimplemented(item);
 }
 
 // D.i = D.i + signext(SIMM16). scc = overflow.
-void InstructionSOPK::S_ADDK_I32(ThreadItem *item)
+void InstructionSOPK::S_ADDK_I32(WarpState *item, uint32_t lane_id)
 {
 	Register simm16;
 	Register sum;
@@ -73,7 +77,7 @@ void InstructionSOPK::S_ADDK_I32(ThreadItem *item)
 }
 
 // D.i = D.i * signext(SIMM16). scc = overflow.
-void InstructionSOPK::S_MULK_I32(ThreadItem *item)
+void InstructionSOPK::S_MULK_I32(WarpState *item, uint32_t lane_id)
 {
 	Register simm16;
 	Register product;

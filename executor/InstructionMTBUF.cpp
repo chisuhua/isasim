@@ -9,6 +9,10 @@ void InstructionMTBUF::Decode(uint64_t _opcode) {
     m_size = 8;
 }
 
+void InstructionMTBUF::print() {
+    printf("Instruction: %s(%x)\n", opcode_str[info.op].c_str(), info.op);
+}
+
 int ISAGetNumElems(int data_format)
 {
 	int num_elems;
@@ -98,7 +102,7 @@ int ISAGetElemSize(int data_format)
 }
 
 
-void Instruction::TBUFFER_LOAD_FORMAT_X(ThreadItem *item)
+void Instruction::TBUFFER_LOAD_FORMAT_X(WarpState *item, uint32_t lane_id)
 {
 
 	assert(!opcode.addr64);
@@ -178,7 +182,7 @@ void Instruction::TBUFFER_LOAD_FORMAT_X(ThreadItem *item)
     */
 }
 
-void Instruction::TBUFFER_LOAD_FORMAT_XY(ThreadItem *item)
+void Instruction::TBUFFER_LOAD_FORMAT_XY(WarpState *item, uint32_t lane_id)
 {
 
 	assert(!opcode.addr64);
@@ -254,12 +258,12 @@ void Instruction::TBUFFER_LOAD_FORMAT_XY(ThreadItem *item)
 	item->global_memory_access_size = bytes_to_read;
 }
 
-void Instruction::TBUFFER_LOAD_FORMAT_XYZ(ThreadItem *item)
+void Instruction::TBUFFER_LOAD_FORMAT_XYZ(WarpState *item, uint32_t lane_id)
 {
 	ISAUnimplemented(item);
 }
 
-void Instruction::TBUFFER_LOAD_FORMAT_XYZW(ThreadItem *item)
+void Instruction::TBUFFER_LOAD_FORMAT_XYZW(WarpState *item, uint32_t lane_id)
 {
 
 	assert(!opcode.addr64);
@@ -340,7 +344,7 @@ void Instruction::TBUFFER_LOAD_FORMAT_XYZW(ThreadItem *item)
 	item->global_memory_access_size = bytes_to_read;
 }
 
-void Instruction::TBUFFER_STORE_FORMAT_X(ThreadItem *item)
+void Instruction::TBUFFER_STORE_FORMAT_X(WarpState *item, uint32_t lane_id)
 {
 
 	assert(!opcode.addr64);
@@ -407,7 +411,7 @@ void Instruction::TBUFFER_STORE_FORMAT_X(ThreadItem *item)
 	}*/
 }
 
-void Instruction::TBUFFER_STORE_FORMAT_XY(ThreadItem *item)
+void Instruction::TBUFFER_STORE_FORMAT_XY(WarpState *item, uint32_t lane_id)
 {
 
 	assert(!opcode.addr64);
@@ -478,7 +482,7 @@ void Instruction::TBUFFER_STORE_FORMAT_XY(ThreadItem *item)
 	item->global_memory_access_size = bytes_to_write;
 }
 
-void Instruction::TBUFFER_STORE_FORMAT_XYZW(ThreadItem *item)
+void Instruction::TBUFFER_STORE_FORMAT_XYZW(WarpState *item, uint32_t lane_id)
 {
 
 	assert(!opcode.addr64);

@@ -1,6 +1,7 @@
 #include "inc/ThreadBlock.h"
 #include "inc/ThreadItem.h"
 #include "inc/Warp.h"
+#include "inc/WarpState.h"
 #include "inc/Instruction.h"
 #include <bitset>
 //#include "../../libcuda/abstract_hardware_model.h"
@@ -9,16 +10,10 @@
 
 extern int libcuda::g_debug_execution;
 
-cta_info_t::cta_info_t(unsigned sm_idx, gpgpu_context *ctx) {
-  /*
-  assert(ctx->func_sim->g_cta_info_t_sm_idx_used.find(sm_idx) ==
-         ctx->func_sim->g_cta_info_t_sm_idx_used.end());
-  ctx->func_sim->g_cta_info_t_sm_idx_used.insert(sm_idx);
-  */
-
-  m_sm_idx = sm_idx;
+cta_info_t::cta_info_t(gpgpu_context *ctx, dim3 cta_id) {
   m_uid = (ctx->g_ptx_cta_info_uid)++;
   m_bar_threads = 0;
+  m_cta_id = cta_id;
   gpgpu_ctx = ctx;
 }
 
@@ -39,8 +34,8 @@ void cta_info_t::check_cta_thread_status_and_reset() {
     printf(
         "Execution error: Some threads still running in CTA during CTA "
         "reallocation! (1)\n");
-    printf("   CTA uid = %Lu (sm_idx = %u) : %lu running out of %zu total\n",
-           m_uid, m_sm_idx,
+    printf("   CTA uid = %Lu : %lu running out of %zu total\n",
+           m_uid,
            (m_threads_in_cta.size() - m_threads_that_have_exited.size()),
            m_threads_in_cta.size());
     printf("   These are the threads that are still running:\n");
@@ -77,7 +72,7 @@ void cta_info_t::check_cta_thread_status_and_reset() {
           printf(
               "Execution error: Some threads still running in CTA during CTA "
               "reallocation! (2)\n");
-          printf("   CTA uid = %Lu (sm_idx = %u) :\n", m_uid, m_sm_idx);
+          printf("   CTA uid = %Lu :\n", m_uid );
           fail2 = true;
         }
         printf("       ");
@@ -104,7 +99,6 @@ void cta_info_t::register_deleted_thread(ThreadItem *thd) {
   m_dangling_pointers.insert(thd);
 }
 
-unsigned cta_info_t::get_sm_idx() const { return m_sm_idx; }
 
 unsigned cta_info_t::get_bar_threads() const { return m_bar_threads; }
 
@@ -113,14 +107,17 @@ void cta_info_t::inc_bar_threads() { m_bar_threads++; }
 void cta_info_t::reset_bar_threads() { m_bar_threads = 0; }
 
 
-ThreadBlock::ThreadBlock(libcuda::gpgpu_t *gpu, KernelInfo* kernel, libcuda::gpgpu_context *ctx, unsigned warp_size, unsigned threads_per_shader)
+ThreadBlock::ThreadBlock(libcuda::gpgpu_t *gpu, KernelInfo* kernel, libcuda::gpgpu_context *ctx, unsigned warp_size, unsigned threads_per_shader, dim3 cta_id, uint32_t kernel_const_num)
     : m_warp_size(warp_size)
     , m_kernel(kernel)
 {
-    m_kernel_addr = kernel->m_prog_addr;
-    m_kernel_args = kernel->m_param_addr;
+    m_kernel_addr = kernel->state()->getProgAddr();
+    m_kernel_args = kernel->state()->getParamAddr();
     m_gpu = gpu;
+    m_global_mem = gpu->get_global_memory();
     m_gpgpu_ctx = ctx;
+    m_cta_info = new cta_info_t(ctx, cta_id);
+    m_kernel_const_num = kernel_const_num;
     m_warp_count = threads_per_shader / m_warp_size;
     // Handle the case where the number of threads is not a
     // multiple of the warp size
@@ -145,18 +142,27 @@ ThreadBlock::ThreadBlock(libcuda::gpgpu_t *gpu, KernelInfo* kernel, libcuda::gpg
 void ThreadBlock::executeInstruction(shared_ptr<Instruction> inst, unsigned warpId) {
   active_mask_t active_mask = m_Warp[warpId]->get_simt_active_mask();
   bool leading_thread = true;
+  // m_Warp[warpId]->m_warp_state->setActiveMask(active_mask);
   for (unsigned t = 0; t < m_warp_size; t++) {
     if (active_mask.test(t)) {
       // if (warpId == (unsigned(-1))) warpId = inst.warp_id();
       unsigned tid = m_warp_size * warpId + t;
-      printf("Info: Warp%d, thread%d, executeInstruction %lx\n", warpId, t, inst->bytes.dword);
+      // printf("Info: Warp%d, thread%d, executeInstruction %lx\n", warpId, t, inst->bytes.dword);
       m_thread[tid]->m_leading_thread = leading_thread;
       leading_thread = false;
-      m_thread[tid]->Execute(inst);
+      m_thread[tid]->Execute(inst, m_Warp[warpId]->m_warp_state);
+      if (m_Warp[warpId]->m_warp_state->isLaneExit(t)) {
+        m_thread[tid]->set_done();
+        m_kernel->m_thread_pool.push_back(m_thread[tid]);
+      }
 
       // virtual function
       checkExecutionStatusAndUpdate(inst, t, tid);
     }
+  }
+  if (libcuda::g_debug_execution > 1) {
+    m_Warp[warpId]->m_warp_state->printSreg();
+    m_Warp[warpId]->m_warp_state->printVreg();
   }
 }
 
@@ -192,10 +198,11 @@ shared_ptr<Instruction> ThreadBlock::getInstruction(address_type pc) {
         // uint64_t opcode = *(uint64_t*)(pc_address);
         uint64_t opcode;
         m_gpu->get_global_memory()->read(pc_address, 8, &opcode);
-        printf("Fetch PC%lx pc_address %lx, Instr: opcode %lx\n", pc, pc_address, opcode);
-        m_insts[pc] = make_instruction(opcode, pc);
+        m_insts[pc] = make_instruction(opcode);
         m_insts[pc]->Decode(opcode);
         m_insts[pc]->pc = pc;
+        printf("PC=%lx(%lx): opcode %lx, ", pc, pc_address, opcode);
+        m_insts[pc]->print();
         return m_insts[pc];
     }
     // FIXME modify m_insts to instrubuffer
@@ -224,8 +231,9 @@ void ThreadBlock::deleteSIMTStack() {
 
 void ThreadBlock::initilizeSIMTStack(unsigned warp_count, unsigned warp_size) {
   m_Warp = new Warp *[warp_count];
-  for (unsigned i = 0; i < warp_count; ++i)
+  for (unsigned i = 0; i < warp_count; ++i) {
     m_Warp[i] = new Warp(i, warp_size, m_gpgpu_ctx);
+  }
   m_warp_size = warp_size;
   m_warp_count = warp_count;
 }
@@ -259,6 +267,11 @@ void ThreadBlock::initializeCTA(unsigned ctaid_cp) {
   }
 
   for (int k = 0; k < m_warp_count; k++) createWarp(k);
+
+  uint32_t sid = 0;
+  char buf[512];
+  snprintf(buf, 512, "shared_%u", sid);
+  m_shared_mem = new libcuda::memory_space_impl<16 * 1024>(buf, 4);
 }
 
 unsigned ThreadBlock::createThread(KernelInfo &kernel,
@@ -267,15 +280,8 @@ unsigned ThreadBlock::createThread(KernelInfo &kernel,
                              unsigned num_threads, ThreadBlock *tb,
                              unsigned hw_cta_id, unsigned hw_warp_id,
                              libcuda::gpgpu_t *gpu, bool isInFunctionalSimulationMode) {
-  std::list<ThreadItem*> &active_threads = kernel.m_active_threads;
-
-  static std::map<unsigned, libcuda::memory_space *> shared_memory_lookup;
-  static std::map<unsigned, libcuda::memory_space *> sstarr_memory_lookup;
-  static std::map<unsigned, cta_info_t *> ptx_cta_lookup;
-  static std::map<unsigned, Warp *> ptx_warp_lookup;
-  static std::map<unsigned, std::map<unsigned, libcuda::memory_space *> >
-      local_memory_lookup;
-
+  std::list<ThreadItem*> &thread_pool = kernel.m_thread_pool;
+#if 0
   if (*thread_info != NULL) {
     ThreadItem *thd = *thread_info;
     assert(thd->is_done());
@@ -292,153 +298,204 @@ unsigned ThreadBlock::createThread(KernelInfo &kernel,
     thd = nullptr;
     *thread_info = nullptr;
   }
-
-  if (!active_threads.empty()) {
-    assert(active_threads.size() <= threads_left);
-    ThreadItem* thd = active_threads.front();
-    active_threads.pop_front();
+#endif
+  ThreadItem* thd;
+  if (!thread_pool.empty()) {
+    assert(thread_pool.size() <= threads_left);
+    thd = thread_pool.front();
+    thread_pool.pop_front();
     *thread_info = thd;
-    thd->init(gpu, tb, sid, hw_cta_id, hw_warp_id, tid);
-    return 1;
+  } else {
+    thd = new ThreadItem();
+    *thread_info = thd;
   }
 
-  if (kernel.no_more_ctas_to_run()) {
-    return 0;  // finished!
-  }
-
-  if (threads_left < kernel.threads_per_cta()) {
-    return 0;
-  }
-
-  if (libcuda::g_debug_execution == -1) {
+  thd->init(gpu, tb, sid, hw_cta_id, hw_warp_id, tid);
+  if (libcuda::g_debug_execution > 1) {
     printf("GPGPU-Sim PTX simulator:  STARTING THREAD ALLOCATION --> \n");
     fflush(stdout);
   }
 
-  // initializing new CTA
-  cta_info_t *cta_info = NULL;
-  libcuda::memory_space *shared_mem = NULL;
-  libcuda::memory_space *sstarr_mem = NULL;
+  unsigned new_tid = kernel.get_next_thread_id();
+  dim3 ctaid3d = kernel.get_next_cta_id();
+  dim3 tid3d = kernel.get_next_thread_id_3d();
+  kernel.increment_thread_id();
+  new_tid += tid;
 
-  unsigned cta_size = kernel.threads_per_cta();
-  unsigned max_cta_per_sm = num_threads / cta_size;  // e.g., 256 / 48 = 5
-  assert(max_cta_per_sm > 0);
-
-  unsigned sm_idx = (tid/cta_size)*m_gpgpu_param_num_shaders + sid;
-  // unsigned sm_idx = hw_cta_id * m_gpgpu_ctx->func_sim->gpgpu_param_num_shaders + sid;
-
-  if (shared_memory_lookup.find(sm_idx) == shared_memory_lookup.end()) {
-    if (libcuda::g_debug_execution >= 1) {
-      printf("  <CTA alloc> : sm_idx=%u sid=%u max_cta_per_sm=%u\n", sm_idx,
-             sid, max_cta_per_sm);
-    }
-    char buf[512];
-    snprintf(buf, 512, "shared_%u", sid);
-    shared_mem = new libcuda::memory_space_impl<16 * 1024>(buf, 4);
-    shared_memory_lookup[sm_idx] = shared_mem;
-    snprintf(buf, 512, "sstarr_%u", sid);
-    sstarr_mem = new libcuda::memory_space_impl<16 * 1024>(buf, 4);
-    sstarr_memory_lookup[sm_idx] = sstarr_mem;
-    cta_info = new cta_info_t(sm_idx, gpu->gpgpu_ctx);
-    ptx_cta_lookup[sm_idx] = cta_info;
-  } else {
-    if (libcuda::g_debug_execution >= 1) {
-      printf("  <CTA realloc> : sm_idx=%u sid=%u max_cta_per_sm=%u\n", sm_idx,
-             sid, max_cta_per_sm);
-    }
-    shared_mem = shared_memory_lookup[sm_idx];
-    sstarr_mem = sstarr_memory_lookup[sm_idx];
-    cta_info = ptx_cta_lookup[sm_idx];
-    cta_info->check_cta_thread_status_and_reset();
-  }
-
-  std::map<unsigned, libcuda::memory_space *> &local_mem_lookup =
-      local_memory_lookup[sid];
-  while (kernel.more_threads_in_cta()) {
-    dim3 ctaid3d = kernel.get_next_cta_id();
-    unsigned new_tid = kernel.get_next_thread_id();
-    dim3 tid3d = kernel.get_next_thread_id_3d();
-    kernel.increment_thread_id();
-    new_tid += tid;
-    ThreadItem *thd = new ThreadItem();
-    Warp *warp_info = NULL;
-    if (ptx_warp_lookup.find(hw_warp_id) == ptx_warp_lookup.end()) {
-      warp_info = new Warp(hw_warp_id, m_warp_size, m_gpgpu_ctx);
-      ptx_warp_lookup[hw_warp_id] = warp_info;
-    } else {
-      warp_info = ptx_warp_lookup[hw_warp_id];
-    }
-    thd->m_warp = warp_info;
-
-    libcuda::memory_space *local_mem = NULL;
-    std::map<unsigned, libcuda::memory_space *>::iterator l =
-        local_mem_lookup.find(new_tid);
-    if (l != local_mem_lookup.end()) {
-      local_mem = l->second;
-    } else {
-      char buf[512];
-      snprintf(buf, 512, "local_%u_%u", sid, new_tid);
-      local_mem = new libcuda::memory_space_impl<32>(buf, 32);
-      local_mem_lookup[new_tid] = local_mem;
-    }
-    // thd->set_info(kernel.entry());
-    thd->set_nctaid(kernel.get_grid_dim());
-    thd->set_ntid(kernel.get_cta_dim());
-    thd->set_ctaid(ctaid3d);
-    thd->set_tid(tid3d);
-    //if (kernel.entry()->get_ptx_version().extensions())
-    //  thd->cpy_tid_to_reg(tid3d);
-    thd->set_valid();
-    thd->m_shared_mem = shared_mem;
-    thd->m_sstarr_mem = sstarr_mem;
-    /* FIXME
-    function_info *finfo = thd->func_info();
-    symbol_table *st = finfo->get_symtab();
-    thd->func_info()->param_to_shared(thd->m_shared_mem, st);
-    thd->func_info()->param_to_shared(thd->m_sstarr_mem, st);
-    */
-    thd->m_cta_info = cta_info;
-    cta_info->add_thread(thd);
-    thd->m_local_mem = local_mem;
-    if (libcuda::g_debug_execution == -1) {
-      printf(
+  thd->set_nctaid(kernel.get_grid_dim());
+  thd->set_ntid(kernel.get_cta_dim());
+  thd->set_ctaid(ctaid3d);
+  thd->set_tid(tid3d);
+  thd->set_valid();
+  if (libcuda::g_debug_execution == -1) {
+    printf(
           "GPGPU-Sim PTX simulator:  allocating thread ctaid=(%u,%u,%u) "
           "tid=(%u,%u,%u) @ 0x%Lx\n",
           ctaid3d.x, ctaid3d.y, ctaid3d.z, tid3d.x, tid3d.y, tid3d.z,
           (unsigned long long)thd);
       fflush(stdout);
-    }
-    active_threads.push_back(thd);
   }
+  // thread_pool.push_back(thd);
   if (libcuda::g_debug_execution == -1) {
     printf("GPGPU-Sim PTX simulator:  <-- FINISHING THREAD ALLOCATION\n");
     fflush(stdout);
   }
-
-  kernel.increment_cta_id();
-
-  assert(active_threads.size() <= threads_left);
-  *thread_info = active_threads.front();
-  (*thread_info)->init(gpu, tb, sid, hw_cta_id, hw_warp_id, tid);
-  active_threads.pop_front();
-  return 1;
 }
 
 void ThreadBlock::createWarp(unsigned warpId) {
+  std::function<dsm_access_ftype> dsm_read_func =
+      [mem = this->m_shared_mem](uint64_t addr, size_t length, void* data) {
+      mem->read(addr, length, data);
+  };
+  std::function<dsm_access_ftype> dsm_write_func =
+      [mem = this->m_shared_mem](uint64_t addr, size_t length, void* data) {
+      mem->write(addr, length, data, nullptr, nullptr);
+  };
+
+  std::function<mem_access_ftype> mem_read_func =
+      [mem_global = this->m_global_mem,
+       mem_shared = this->m_shared_mem
+      ](uint64_t addr, size_t length, void* data, mem_space_t mem_space) {
+      switch (mem_space) {
+        case mem_space_t::global_space:
+        case mem_space_t::const_space:
+        case mem_space_t::param_local_space:
+        case mem_space_t::param_kernel_space:
+        case mem_space_t::local_space:
+            mem_global->read(addr, length, data);
+            break;
+        case mem_space_t::shared_space:
+            mem_shared->read(addr, length, data);
+            break;
+        case mem_space_t::generic_space:
+            printf("Warnning, we need to check share space\n");
+            mem_global->read(addr, length, data);
+            break;
+        default:
+            mem_shared->read(addr, length, data);
+            // assert(false);
+      }
+  };
+
+  std::function<mem_access_ftype> mem_write_func =
+      [mem_global = this->m_global_mem,
+       mem_shared = this->m_shared_mem
+      ](uint64_t addr, size_t length, void* data, mem_space_t mem_space) {
+      switch (mem_space) {
+        case mem_space_t::global_space:
+        case mem_space_t::const_space:
+        case mem_space_t::param_local_space:
+        case mem_space_t::param_kernel_space:
+        case mem_space_t::local_space:
+            mem_global->read(addr, length, data);
+            break;
+        case mem_space_t::shared_space:
+            mem_shared->read(addr, length, data);
+            break;
+        case mem_space_t::generic_space:
+            printf("Warnning, we need to check share space\n");
+            mem_global->read(addr, length, data);
+            break;
+        default:
+            mem_shared->read(addr, length, data);
+            // assert(false);
+      }
+  };
+
+  m_Warp[warpId]->m_warp_state = new WarpState(256, 265, m_warp_size,
+          m_kernel_const_num,
+          dsm_read_func, dsm_write_func,
+          mem_read_func, mem_write_func);
+
+  WarpState *warp_state = m_Warp[warpId]->m_warp_state;
+
+  uint64_t warp_stack_pointer =
+        m_kernel->state()->getLocalAddr() + m_kernel->state()->getLocalSize() * warpId;
+  warp_state->setStackPointer(warp_stack_pointer);
+
+  // const buffer is used param_kernel_space
+  // uint64_t const_buffer = m_kernel->state()->getParamAddr();
+  uint32_t *const_buffer = m_kernel->state()->getConstBuffer();
+  warp_state->setConstBuffer(const_buffer);
+#if 0
+  // FIXME move block const to share memory
+  uint32_t block_const_reg_num = BLOCK_CONST_REG_BASE; // stackpointer have use sreg[0:1]
+  // below behavior is same as coasm, which kernel access reg in same way
+  // FIXME we can move block const reg in shared memory
+  if ((m_kernel->kernel_ctrl() >> KERNEL_CTRL_BIT_BLOCK_IDX_X) & 0x1) {
+      warp_state->setSreg(block_const_reg_num, m_cta_info->get_cta_id().x);
+      block_const_reg_num++;
+  }
+  if ((m_kernel->kernel_ctrl() >> KERNEL_CTRL_BIT_BLOCK_IDX_Y) & 0x1) {
+      warp_state->setSreg(block_const_reg_num, m_cta_info->get_cta_id().y);
+      block_const_reg_num++;
+  }
+  if ((m_kernel->kernel_ctrl() >> KERNEL_CTRL_BIT_BLOCK_IDX_Z) & 0x1) {
+      warp_state->setSreg(block_const_reg_num, m_cta_info->get_cta_id().z);
+      block_const_reg_num++;
+  }
+#endif
   simt_mask_t initialMask;
   unsigned liveThreadsCount = 0;
   initialMask.set();
-  for (int i = warpId * m_warp_size; i < warpId * m_warp_size + m_warp_size;
-       i++) {
-    if (m_thread[i] == NULL)
-      initialMask.reset(i - warpId * m_warp_size);
-    else
-      liveThreadsCount++;
+
+  int32_t block_idx_x_vreg_num = -1;
+  int32_t block_idx_y_vreg_num = -1;
+  int32_t block_idx_z_vreg_num = -1;
+  int32_t thread_idx_x_vreg_num = -1;
+  int32_t thread_idx_y_vreg_num = -1;
+  int32_t thread_idx_z_vreg_num = -1;
+
+  if ((m_kernel->kernel_ctrl() >> KERNEL_CTRL_BIT_BLOCK_IDX_X) & 0x1) {
+    block_idx_x_vreg_num = 0;
+  }
+  if ((m_kernel->kernel_ctrl() >> KERNEL_CTRL_BIT_BLOCK_IDX_Y) & 0x1) {
+    block_idx_y_vreg_num = block_idx_x_vreg_num + 1;
+  }
+  if ((m_kernel->kernel_ctrl() >> KERNEL_CTRL_BIT_BLOCK_IDX_Y) & 0x1) {
+    block_idx_z_vreg_num = block_idx_y_vreg_num + 1;
+  }
+  if ((m_kernel->kernel_ctrl() >> KERNEL_CTRL_BIT_THREAD_IDX_X) & 0x1) {
+    thread_idx_x_vreg_num = block_idx_z_vreg_num + 1;
+  }
+  if ((m_kernel->kernel_ctrl() >> KERNEL_CTRL_BIT_THREAD_IDX_Y) & 0x1) {
+    thread_idx_y_vreg_num = thread_idx_x_vreg_num + 1;
+  }
+  if ((m_kernel->kernel_ctrl() >> KERNEL_CTRL_BIT_THREAD_IDX_Y) & 0x1) {
+    thread_idx_z_vreg_num = thread_idx_y_vreg_num + 1;
   }
 
-  assert(m_thread[warpId * m_warp_size] != NULL);
-  m_Warp[warpId]->launch(m_thread[warpId * m_warp_size]->get_pc(),
-                               initialMask);
+  for (int i = warpId * m_warp_size; i < warpId * m_warp_size + m_warp_size;
+       i++) {
+    int lane_id = i -  warpId * m_warp_size;
+    if (m_thread[i] == NULL)
+      initialMask.reset(lane_id);
+    else {
+      m_thread[i]->set_laneid(lane_id);
+      liveThreadsCount++;
+      if (block_idx_x_vreg_num >= 0)
+          warp_state->setVreg(block_idx_x_vreg_num + THREAD_REG_BASE,
+                  m_cta_info->get_cta_id().x, lane_id);
+      if (block_idx_y_vreg_num >= 0)
+          warp_state->setVreg(block_idx_y_vreg_num + THREAD_REG_BASE,
+                  m_cta_info->get_cta_id().y, lane_id);
+      if (block_idx_z_vreg_num >= 0)
+          warp_state->setVreg(block_idx_z_vreg_num + THREAD_REG_BASE,
+                  m_cta_info->get_cta_id().z, lane_id);
+      if (thread_idx_x_vreg_num >= 0)
+          warp_state->setVreg(thread_idx_x_vreg_num + THREAD_REG_BASE,
+                  m_thread[i]->get_tid().x, lane_id);
+      if (thread_idx_y_vreg_num >= 0)
+          warp_state->setVreg(thread_idx_y_vreg_num + THREAD_REG_BASE,
+                  m_thread[i]->get_tid().y, lane_id);
+      if (thread_idx_z_vreg_num >= 0)
+          warp_state->setVreg(thread_idx_z_vreg_num + THREAD_REG_BASE,
+                  m_thread[i]->get_tid().z, lane_id);
+    }
+  }
+
+  m_Warp[warpId]->launch(m_thread[warpId * m_warp_size]->get_pc(), initialMask);
+
   char fname[2048];
   snprintf(fname, 2048, "checkpoint_files/warp_%d_0_simt.txt", warpId);
 
@@ -485,9 +542,6 @@ void ThreadBlock::execute(int inst_count, unsigned ctaid_cp) {
   checkpoint *g_checkpoint;
   g_checkpoint = new checkpoint();
 
-  ptx_reg_t regval;
-  regval.u64 = 123;
-
   unsigned ctaid = m_kernel->get_next_cta_id_single();
   if (m_gpu->checkpoint_option == 1 &&
       (m_kernel->get_uid() == m_gpu->checkpoint_kernel) &&
@@ -501,12 +555,6 @@ void ThreadBlock::execute(int inst_count, unsigned ctaid_cp) {
       char fname[2048];
       snprintf(fname, 2048, "checkpoint_files/thread_%d_%d_reg.txt", i,
                ctaid - 1);
-      // FIXME m_thread[i]->print_reg_thread(fname);
-      char f1name[2048];
-      snprintf(f1name, 2048, "checkpoint_files/local_mem_thread_%d_%d_reg.txt",
-               i, ctaid - 1);
-      g_checkpoint->store_global_mem(m_thread[i]->m_local_mem, f1name,
-                                     (char *)"%08x");
       m_thread[i]->set_done();
       m_thread[i]->exitCore();
       m_thread[i]->registerExit();
@@ -540,9 +588,10 @@ void ThreadBlock::executeWarp(unsigned warpId, bool &allAtBarrier,
 
 void ThreadBlock::warp_exit(unsigned warp_id) {
   for (int i = 0; i < m_warp_count * m_warp_size; i++) {
+    // FIXME 
     if (m_thread[i] != NULL) {
-      m_thread[i]->m_cta_info->register_deleted_thread(m_thread[i]);
-      delete m_thread[i];
+      // m_thread[i]->m_cta_info->register_deleted_thread(m_thread[i]);
+      // delete m_thread[i];
     }
   }
 }

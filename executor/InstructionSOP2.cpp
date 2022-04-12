@@ -20,8 +20,12 @@ void InstructionSOP2::Decode(uint64_t _opcode) {
     }
 }
 
+void InstructionSOP2::print() {
+    printf("Instruction: %s(%x)\n", opcode_str[info.op].c_str(), info.op);
+}
+
 // D.u = S0.u + S1.u. SCC = carry out.
-void InstructionSOP2::S_ADD_U32(ThreadItem *item)
+void InstructionSOP2::S_ADD_U32(WarpState *item, uint32_t lane_id)
 {
 	Register s0;
 	Register s1;
@@ -57,7 +61,7 @@ void InstructionSOP2::S_ADD_U32(ThreadItem *item)
 
 
 // D.u = S0.i + S1.i. scc = overflow.
-void InstructionSOP2::S_ADD_I32(ThreadItem *item)
+void InstructionSOP2::S_ADD_I32(WarpState *item, uint32_t lane_id)
 {
 	Register s0;
 	Register s1;
@@ -93,7 +97,7 @@ void InstructionSOP2::S_ADD_I32(ThreadItem *item)
 }
 
 // D.u = S0.i - S1.i. scc = overflow.
-void InstructionSOP2::S_SUB_I32(ThreadItem *item)
+void InstructionSOP2::S_SUB_I32(WarpState *item, uint32_t lane_id)
 {
 	Register s0;
 	Register s1;
@@ -129,7 +133,7 @@ void InstructionSOP2::S_SUB_I32(ThreadItem *item)
 }
 
 // D.u = (S0.u < S1.u) ? S0.u : S1.u, scc = 1 if S0 is min.
-void InstructionSOP2::S_MIN_U32(ThreadItem *item)
+void InstructionSOP2::S_MIN_U32(WarpState *item, uint32_t lane_id)
 {
 	Register s0;
 	Register s1;
@@ -171,7 +175,7 @@ void InstructionSOP2::S_MIN_U32(ThreadItem *item)
 }
 
 // D.i = (S0.i > S1.i) ? S0.i : S1.i, scc = 1 if S0 is max.
-void InstructionSOP2::S_MAX_I32(ThreadItem *item)
+void InstructionSOP2::S_MAX_I32(WarpState *item, uint32_t lane_id)
 {
 	Register s0;
 	Register s1;
@@ -213,7 +217,7 @@ void InstructionSOP2::S_MAX_I32(ThreadItem *item)
 }
 
 // D.u = (S0.u > S1.u) ? S0.u : S1.u, scc = 1 if S0 is max.
-void InstructionSOP2::S_MAX_U32(ThreadItem *item)
+void InstructionSOP2::S_MAX_U32(WarpState *item, uint32_t lane_id)
 {
 	Register s0;
 	Register s1;
@@ -255,7 +259,7 @@ void InstructionSOP2::S_MAX_U32(ThreadItem *item)
 }
 
 // D.u = SCC ? S0.u : S1.u
-void InstructionSOP2::S_CSELECT_B32(ThreadItem *item)
+void InstructionSOP2::S_CSELECT_B32(WarpState *item, uint32_t lane_id)
 {
 	Register s0;
 	Register s1;
@@ -286,7 +290,7 @@ void InstructionSOP2::S_CSELECT_B32(ThreadItem *item)
 }
 
 // D.u = S0.u & S1.u. scc = 1 if result is non-zero.
-void InstructionSOP2::S_AND_B32(ThreadItem *item)
+void InstructionSOP2::S_AND_B32(WarpState *item, uint32_t lane_id)
 {
 	Register s0;
 	Register s1;
@@ -321,7 +325,7 @@ void InstructionSOP2::S_AND_B32(ThreadItem *item)
 }
 
 // D.u = S0.u & S1.u. scc = 1 if result is non-zero.
-void InstructionSOP2::S_AND_B64(ThreadItem *item)
+void InstructionSOP2::S_AND_B64(WarpState *item, uint32_t lane_id)
 {
 	// Assert no literal constants for a 64 bit instruction.
 	assert(!(opcode.ssrc0 == 0xFF || opcode.ssrc1 == 0xFF));
@@ -361,7 +365,7 @@ void InstructionSOP2::S_AND_B64(ThreadItem *item)
 }
 
 // D.u = S0.u | S1.u. scc = 1 if result is non-zero.
-void InstructionSOP2::S_OR_B32(ThreadItem *item)
+void InstructionSOP2::S_OR_B32(WarpState *item, uint32_t lane_id)
 {
 	Register s0;
 	Register s1;
@@ -396,7 +400,7 @@ void InstructionSOP2::S_OR_B32(ThreadItem *item)
 }
 
 // D.u = S0.u | S1.u. scc = 1 if result is non-zero.
-void InstructionSOP2::S_OR_B64(ThreadItem *item)
+void InstructionSOP2::S_OR_B64(WarpState *item, uint32_t lane_id)
 {
 	// Assert no literal constants for a 64 bit instruction.
 	assert(!(opcode.ssrc0 == 0xFF || opcode.ssrc1 == 0xFF));
@@ -436,7 +440,7 @@ void InstructionSOP2::S_OR_B64(ThreadItem *item)
 }
 
 // D.u = S0.u ^ S1.u. scc = 1 if result is non-zero.
-void InstructionSOP2::S_XOR_B64(ThreadItem *item)
+void InstructionSOP2::S_XOR_B64(WarpState *item, uint32_t lane_id)
 {
 	// Assert no literal constants for a 64 bit instruction.
 	assert(!(opcode.ssrc0 == 0xFF || opcode.ssrc1 == 0xFF));
@@ -476,7 +480,7 @@ void InstructionSOP2::S_XOR_B64(ThreadItem *item)
 }
 
 // D.u = S0.u & ~S1.u. scc = 1 if result is non-zero.
-void InstructionSOP2::S_ANDN2_B64(ThreadItem *item)
+void InstructionSOP2::S_ANDN2_B64(WarpState *item, uint32_t lane_id)
 {
 	// Assert no literal constants for a 64 bit instruction.
 	assert(!(opcode.ssrc0 == 0xFF || opcode.ssrc1 == 0xFF));
@@ -516,7 +520,7 @@ void InstructionSOP2::S_ANDN2_B64(ThreadItem *item)
 }
 
 // D.u = ~(S0.u & S1.u). scc = 1 if result is non-zero.
-void InstructionSOP2::S_NAND_B64(ThreadItem *item)
+void InstructionSOP2::S_NAND_B64(WarpState *item, uint32_t lane_id)
 {
 	// Assert no literal constants for a 64 bit instruction.
 	assert(!(opcode.ssrc0 == 0xFF || opcode.ssrc1 == 0xFF));
@@ -556,7 +560,7 @@ void InstructionSOP2::S_NAND_B64(ThreadItem *item)
 }
 
 // D.u = S0.u << S1.u[4:0]. scc = 1 if result is non-zero.
-void InstructionSOP2::S_LSHL_B32(ThreadItem *item)
+void InstructionSOP2::S_LSHL_B32(WarpState *item, uint32_t lane_id)
 {
 	Register s0;
 	Register s1;
@@ -600,7 +604,7 @@ void InstructionSOP2::S_LSHL_B32(ThreadItem *item)
 }
 
 // D.u = S0.u >> S1.u[4:0]. scc = 1 if result is non-zero.
-void InstructionSOP2::S_LSHR_B32(ThreadItem *item)
+void InstructionSOP2::S_LSHR_B32(WarpState *item, uint32_t lane_id)
 {
 	Register s0;
 	Register s1;
@@ -644,7 +648,7 @@ void InstructionSOP2::S_LSHR_B32(ThreadItem *item)
 }
 
 // D.i = signext(S0.i) >> S1.i[4:0]. scc = 1 if result is non-zero.
-void InstructionSOP2::S_ASHR_I32(ThreadItem *item)
+void InstructionSOP2::S_ASHR_I32(WarpState *item, uint32_t lane_id)
 {
 	Register s0;
 	Register s1;
@@ -688,7 +692,7 @@ void InstructionSOP2::S_ASHR_I32(ThreadItem *item)
 }
 
 // D.i = S0.i * S1.i.
-void InstructionSOP2::S_MUL_I32(ThreadItem *item)
+void InstructionSOP2::S_MUL_I32(WarpState *item, uint32_t lane_id)
 {
 	Register s0;
 	Register s1;
@@ -718,7 +722,7 @@ void InstructionSOP2::S_MUL_I32(ThreadItem *item)
 
 /* D.i = (S0.i >> S1.u[4:0]) & ((1 << S2.u[4:0]) - 1); bitfield extract,
  * S0=data, S1=field_offset, S2=field_width. */
-void InstructionSOP2::S_BFE_I32(ThreadItem *item)
+void InstructionSOP2::S_BFE_I32(WarpState *item, uint32_t lane_id)
 {
 	Register s0;
 	Register s1;

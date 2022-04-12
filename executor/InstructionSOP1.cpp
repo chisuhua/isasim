@@ -19,8 +19,12 @@ void InstructionSOP1::Decode(uint64_t _opcode) {
     }
 }
 
+void InstructionSOP1::print() {
+    printf("Instruction: %s(%x)\n", opcode_str[info.op].c_str(), info.op);
+}
+
 // D.u = S0.u.
-void InstructionSOP1::S_MOV_B64(ThreadItem *item)
+void InstructionSOP1::S_MOV_B64(WarpState *item, uint32_t lane_id)
 {
 	// Assert no literal constant with a 64 bit instruction.
 	// assert(!(opcode.ssrc0 == 0xFF));
@@ -50,7 +54,7 @@ void InstructionSOP1::S_MOV_B64(ThreadItem *item)
 }
 
 // D.u = S0.u.
-void InstructionSOP1::S_MOV_B32(ThreadItem *item)
+void InstructionSOP1::S_MOV_B32(WarpState *item, uint32_t lane_id)
 {
 	Register s0;
 
@@ -69,7 +73,7 @@ void InstructionSOP1::S_MOV_B32(ThreadItem *item)
 }
 
 // D.u = ~S0.u SCC = 1 if result non-zero.
-void InstructionSOP1::S_NOT_B32(ThreadItem *item)
+void InstructionSOP1::S_NOT_B32(WarpState *item, uint32_t lane_id)
 {
 	Register s0;
 	Register nonzero;
@@ -92,13 +96,13 @@ void InstructionSOP1::S_NOT_B32(ThreadItem *item)
 }
 
 // D.u = WholeQuadMode(S0.u). SCC = 1 if result is non-zero.
-void InstructionSOP1::S_WQM_B64(ThreadItem *item)
+void InstructionSOP1::S_WQM_B64(WarpState *item, uint32_t lane_id)
 {
 	ISAUnimplemented(item);
 }
 
 // D.u = PC + 4, PC = S0.u
-void InstructionSOP1::S_SWAPPC_B64(ThreadItem *item)
+void InstructionSOP1::S_SWAPPC_B64(WarpState *item, uint32_t lane_id)
 {
 	Register s0_lo;
 	Register s0_hi;
@@ -110,12 +114,12 @@ void InstructionSOP1::S_SWAPPC_B64(ThreadItem *item)
 
 	// Write the results
 	// Store the data in the destination register
-	WriteSReg(opcode.sdst, GetWarp->GetWarpPC() + 4);
+	WriteSReg(opcode.sdst, item->getWarpPC() + 4);
 	// Store the data in the destination register
 	WriteSReg(opcode.sdst + 1, 0);
 
 	// Set the new PC
-	GetWarp->SetWarpPC(s0_lo.as_uint - 4);
+	item->setWarpPC(s0_lo.as_uint - 4);
 
     debug_print("s%u <= (0x%x)", opcode.sdst+1, s0_hi.as_uint);
 	// Print isa debug information.
@@ -126,7 +130,7 @@ void InstructionSOP1::S_SWAPPC_B64(ThreadItem *item)
 
 /* D.u = EXEC, EXEC = S0.u & EXEC. scc = 1 if the new value of EXEC is
  * non-zero. */
-void InstructionSOP1::S_AND_SAVEEXEC_B64(ThreadItem *item)
+void InstructionSOP1::S_AND_SAVEEXEC_B64(WarpState *item, uint32_t lane_id)
 {
 	// Assert no literal constant with a 64 bit instruction.
 	assert(!(opcode.ssrc0 == 0xFF));

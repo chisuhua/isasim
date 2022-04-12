@@ -9,7 +9,11 @@ void InstructionVMUBUF::Decode(uint64_t _opcode) {
     m_size = 8;
 }
 
-void InstructionVMUBUF::V_BUFFER_LOAD_SBYTE(ThreadItem *item)
+void InstructionVMUBUF::print() {
+    printf("Instruction: %s(%x)\n", opcode_str[info.op].c_str(), info.op);
+}
+
+void InstructionVMUBUF::V_BUFFER_LOAD_SBYTE(WarpState *item, uint32_t lane_id)
 {
 
 	assert(!opcode.addr64);
@@ -37,16 +41,16 @@ void InstructionVMUBUF::V_BUFFER_LOAD_SBYTE(ThreadItem *item)
 	// Table 8.3 from SI ISA
 	if (!opcode.idxen && opcode.offen)
 	{
-		off_vgpr = ReadVReg(opcode.vaddr);
+		off_vgpr = ReadVReg(opcode.vaddr, lane_id);
 	}
 	else if (opcode.idxen && !opcode.offen)
 	{
-		idx_vgpr = ReadVReg(opcode.vaddr);
+		idx_vgpr = ReadVReg(opcode.vaddr, lane_id);
 	}
 	else if (opcode.idxen && opcode.offen)
 	{
-		idx_vgpr = ReadVReg(opcode.vaddr);
-		off_vgpr = ReadVReg(opcode.vaddr + 1);
+		idx_vgpr = ReadVReg(opcode.vaddr, lane_id);
+		off_vgpr = ReadVReg(opcode.vaddr + 1, lane_id);
 	}
 
 	/* It wouldn't make sense to have a value for idxen without
@@ -55,19 +59,19 @@ void InstructionVMUBUF::V_BUFFER_LOAD_SBYTE(ThreadItem *item)
 		throw std::runtime_error("The buffer descriptor is probably invalid");
 
 	unsigned addr = base + mem_offset + inst_offset + off_vgpr +
-		stride * (idx_vgpr + item->m_laneId);
+		stride * (idx_vgpr + lane_id);
 
 
-	ReadMemory(addr, bytes_to_read, (char *)&value);
+	ReadVMEM(addr, bytes_to_read, (char *)&value);
 
 	// Sign extend
 	value.as_int = (int) value.as_byte[0];
 
-	WriteVReg(opcode.vdata, value.as_uint);
+	WriteVReg(opcode.vdata, value.as_uint, lane_id);
 
 	// Record last memory access for the detailed simulator.
-	item->global_memory_access_address = addr;
-	item->global_memory_access_size = bytes_to_read;
+	item->m_global_memory_access_address = addr;
+	item->m_global_memory_access_size = bytes_to_read;
 
 	/*if (Emulator::isa_debug)
 	{
@@ -76,7 +80,7 @@ void InstructionVMUBUF::V_BUFFER_LOAD_SBYTE(ThreadItem *item)
 	}*/
 }
 
-void InstructionVMUBUF::V_BUFFER_LOAD_DWORD(ThreadItem *item)
+void InstructionVMUBUF::V_BUFFER_LOAD_DWORD(WarpState *item, uint32_t lane_id)
 {
 
 	assert(!opcode.addr64);
@@ -104,16 +108,16 @@ void InstructionVMUBUF::V_BUFFER_LOAD_DWORD(ThreadItem *item)
 	// Table 8.3 from SI ISA
 	if (!opcode.idxen && opcode.offen)
 	{
-		off_vgpr = ReadVReg(opcode.vaddr);
+		off_vgpr = ReadVReg(opcode.vaddr, lane_id);
 	}
 	else if (opcode.idxen && !opcode.offen)
 	{
-		idx_vgpr = ReadVReg(opcode.vaddr);
+		idx_vgpr = ReadVReg(opcode.vaddr, lane_id);
 	}
 	else if (opcode.idxen && opcode.offen)
 	{
-		idx_vgpr = ReadVReg(opcode.vaddr);
-		off_vgpr = ReadVReg(opcode.vaddr + 1);
+		idx_vgpr = ReadVReg(opcode.vaddr, lane_id);
+		off_vgpr = ReadVReg(opcode.vaddr + 1, lane_id);
 	}
 
 	/* It wouldn't make sense to have a value for idxen without
@@ -122,19 +126,19 @@ void InstructionVMUBUF::V_BUFFER_LOAD_DWORD(ThreadItem *item)
 		throw std::runtime_error("Probably invalid buffer descriptor");
 
 	unsigned addr = base + mem_offset + inst_offset + off_vgpr +
-		stride * (idx_vgpr + item->m_laneId);
+		stride * (idx_vgpr + lane_id);
 
 
-	ReadMemory(addr, bytes_to_read, (char *)&value);
+	ReadVMEM(addr, bytes_to_read, (char *)&value);
 
 	// Sign extend
 	value.as_int = (int) value.as_byte[0];
 
-	WriteVReg(opcode.vdata, value.as_uint);
+	WriteVReg(opcode.vdata, value.as_uint, lane_id);
 
 	// Record last memory access for the detailed simulator.
-	item->global_memory_access_address = addr;
-	item->global_memory_access_size = bytes_to_read;
+	item->m_global_memory_access_address = addr;
+	item->m_global_memory_access_size = bytes_to_read;
 
 	/*if (Emulator::isa_debug)
 	{
@@ -143,7 +147,7 @@ void InstructionVMUBUF::V_BUFFER_LOAD_DWORD(ThreadItem *item)
 	}*/
 }
 
-void InstructionVMUBUF::V_BUFFER_STORE_SBYTE(ThreadItem *item)
+void InstructionVMUBUF::V_BUFFER_STORE_SBYTE(WarpState *item, uint32_t lane_id)
 {
 
 	assert(!opcode.addr64);
@@ -161,7 +165,7 @@ void InstructionVMUBUF::V_BUFFER_STORE_SBYTE(ThreadItem *item)
 
 	if (opcode.glc)
 	{
-		GetWarp->SetVectorMemoryGlobalCoherency(true); // FIXME redundant
+		item->SetVectorMemoryGlobalCoherency(true); // FIXME redundant
 	}
 
 	// srsrc is in units of 4 registers
@@ -175,16 +179,16 @@ void InstructionVMUBUF::V_BUFFER_STORE_SBYTE(ThreadItem *item)
 	// Table 8.3 from SI ISA
 	if (!opcode.idxen && opcode.offen)
 	{
-		off_vgpr = ReadVReg(opcode.vaddr);
+		off_vgpr = ReadVReg(opcode.vaddr, lane_id);
 	}
 	else if (opcode.idxen && !opcode.offen)
 	{
-		idx_vgpr = ReadVReg(opcode.vaddr);
+		idx_vgpr = ReadVReg(opcode.vaddr, lane_id);
 	}
 	else if (opcode.idxen && opcode.offen)
 	{
-		idx_vgpr = ReadVReg(opcode.vaddr);
-		off_vgpr = ReadVReg(opcode.vaddr + 1);
+		idx_vgpr = ReadVReg(opcode.vaddr, lane_id);
+		off_vgpr = ReadVReg(opcode.vaddr + 1, lane_id);
 	}
 
 	/* It wouldn't make sense to have a value for idxen without
@@ -193,20 +197,20 @@ void InstructionVMUBUF::V_BUFFER_STORE_SBYTE(ThreadItem *item)
 		throw std::runtime_error("Probably invalid buffer descriptor");
 
 	unsigned addr = base + mem_offset + inst_offset + off_vgpr +
-		stride * (idx_vgpr + item->m_laneId);
+		stride * (idx_vgpr + lane_id);
 
-	value.as_int = ReadVReg(opcode.vdata);
+	value.as_int = ReadVReg(opcode.vdata, lane_id);
 
-	WriteMemory(addr, bytes_to_write, (char *)&value);
+	WriteVMEM(addr, bytes_to_write, (char *)&value);
 
 	// Sign extend
 	//value.as_int = (int) value.as_byte[0];
 
-	WriteVReg(opcode.vdata, value.as_uint);
+	WriteVReg(opcode.vdata, value.as_uint, lane_id);
 
 	// Record last memory access for the detailed simulator.
-	item->global_memory_access_address = addr;
-	item->global_memory_access_size = bytes_to_write;
+	item->m_global_memory_access_address = addr;
+	item->m_global_memory_access_size = bytes_to_write;
 
 	/*if (Emulator::isa_debug)
 	{
@@ -215,7 +219,7 @@ void InstructionVMUBUF::V_BUFFER_STORE_SBYTE(ThreadItem *item)
 	}*/
 }
 
-void InstructionVMUBUF::V_BUFFER_STORE_DWORD(ThreadItem *item)
+void InstructionVMUBUF::V_BUFFER_STORE_DWORD(WarpState *item, uint32_t lane_id)
 {
 
 	assert(!opcode.addr64);
@@ -233,7 +237,7 @@ void InstructionVMUBUF::V_BUFFER_STORE_DWORD(ThreadItem *item)
 
 	if (opcode.glc)
 	{
-		GetWarp->SetVectorMemoryGlobalCoherency(true); // FIXME redundant
+		item->SetVectorMemoryGlobalCoherency(true); // FIXME redundant
 	}
 
 	// srsrc is in units of 4 registers
@@ -247,16 +251,16 @@ void InstructionVMUBUF::V_BUFFER_STORE_DWORD(ThreadItem *item)
 	// Table 8.3 from SI ISA
 	if (!opcode.idxen && opcode.offen)
 	{
-		off_vgpr = ReadVReg(opcode.vaddr);
+		off_vgpr = ReadVReg(opcode.vaddr, lane_id);
 	}
 	else if (opcode.idxen && !opcode.offen)
 	{
-		idx_vgpr = ReadVReg(opcode.vaddr);
+		idx_vgpr = ReadVReg(opcode.vaddr, lane_id);
 	}
 	else if (opcode.idxen && opcode.offen)
 	{
-		idx_vgpr = ReadVReg(opcode.vaddr);
-		off_vgpr = ReadVReg(opcode.vaddr + 1);
+		idx_vgpr = ReadVReg(opcode.vaddr, lane_id);
+		off_vgpr = ReadVReg(opcode.vaddr + 1, lane_id);
 	}
 
 	/* It wouldn't make sense to have a value for idxen without
@@ -265,15 +269,15 @@ void InstructionVMUBUF::V_BUFFER_STORE_DWORD(ThreadItem *item)
 		throw std::runtime_error("Probably invalid buffer descriptor");
 
 	unsigned addr = base + mem_offset + inst_offset + off_vgpr +
-		stride * (idx_vgpr + item->m_laneId);
+		stride * (idx_vgpr + lane_id);
 
-	value.as_int = ReadVReg(opcode.vdata);
+	value.as_int = ReadVReg(opcode.vdata, lane_id);
 
-	WriteMemory(addr, bytes_to_write, (char *)&value);
+	WriteVMEM(addr, bytes_to_write, (char *)&value);
 
 	// Record last memory access for the detailed simulator.
-	item->global_memory_access_address = addr;
-	item->global_memory_access_size = bytes_to_write;
+	item->m_global_memory_access_address = addr;
+	item->m_global_memory_access_size = bytes_to_write;
 
 	/*if (Emulator::isa_debug)
 	{
@@ -282,7 +286,7 @@ void InstructionVMUBUF::V_BUFFER_STORE_DWORD(ThreadItem *item)
 	}*/
 }
 
-void InstructionVMUBUF::V_BUFFER_ATOMIC_ADD(ThreadItem *item)
+void InstructionVMUBUF::V_BUFFER_ATOMIC_ADD(WarpState *item, uint32_t lane_id)
 {
 
 	assert(!opcode.addr64);
@@ -302,14 +306,14 @@ void InstructionVMUBUF::V_BUFFER_ATOMIC_ADD(ThreadItem *item)
 
 	if (opcode.glc)
 	{
-		GetWarp->SetVectorMemoryGlobalCoherency(true);
+		item->SetVectorMemoryGlobalCoherency(true);
 	}
 	else
 	{
 		/* NOTE Regardless of whether the glc bit is set by the AMD
 		 * compiler, for the NMOESI protocol correctness , the glc bit
 		 * must be set. */
-		GetWarp->SetVectorMemoryGlobalCoherency(true);
+		item->SetVectorMemoryGlobalCoherency(true);
 	}
 
 	// srsrc is in units of 4 registers
@@ -323,16 +327,16 @@ void InstructionVMUBUF::V_BUFFER_ATOMIC_ADD(ThreadItem *item)
 	// Table 8.3 from SI ISA
 	if (!opcode.idxen && opcode.offen)
 	{
-		off_vgpr = ReadVReg(opcode.vaddr);
+		off_vgpr = ReadVReg(opcode.vaddr, lane_id);
 	}
 	else if (opcode.idxen && !opcode.offen)
 	{
-		idx_vgpr = ReadVReg(opcode.vaddr);
+		idx_vgpr = ReadVReg(opcode.vaddr, lane_id);
 	}
 	else if (opcode.idxen && opcode.offen)
 	{
-		idx_vgpr = ReadVReg(opcode.vaddr);
-		off_vgpr = ReadVReg(opcode.vaddr + 1);
+		idx_vgpr = ReadVReg(opcode.vaddr, lane_id);
+		off_vgpr = ReadVReg(opcode.vaddr + 1, lane_id);
 	}
 
 	/* It wouldn't make sense to have a value for idxen without
@@ -341,28 +345,28 @@ void InstructionVMUBUF::V_BUFFER_ATOMIC_ADD(ThreadItem *item)
 		throw std::runtime_error("Probably invalid buffer descriptor");
 
 	unsigned addr = base + mem_offset + inst_offset + off_vgpr +
-		stride * (idx_vgpr + item->m_laneId);
+		stride * (idx_vgpr + lane_id);
 
 	// Read existing value from global memory
 
-	ReadMemory(addr, bytes_to_read, prev_value.as_byte);
+	ReadVMEM(addr, bytes_to_read, prev_value.as_byte);
 
 	// Read value to add to existing value from a register
-	value.as_int = ReadVReg(opcode.vdata);
+	value.as_int = ReadVReg(opcode.vdata, lane_id);
 
 	// Compute and store the updated value
 	value.as_int += prev_value.as_int;
-	WriteMemory(addr, bytes_to_write, (char *)&value);
+	WriteVMEM(addr, bytes_to_write, (char *)&value);
 
 	// If glc bit set, return the previous value in a register
 	if (opcode.glc)
 	{
-		WriteVReg(opcode.vdata, prev_value.as_uint);
+		WriteVReg(opcode.vdata, prev_value.as_uint, lane_id);
 	}
 
 	// Record last memory access for the detailed simulator.
-	item->global_memory_access_address = addr;
-	item->global_memory_access_size = bytes_to_write;
+	item->m_global_memory_access_address = addr;
+	item->m_global_memory_access_size = bytes_to_write;
 
     /*
 	if (Emulator::isa_debug)

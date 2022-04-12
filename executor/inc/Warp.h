@@ -68,42 +68,24 @@ class Warp {
 
 public:
   // void setSReg(int sreg, unsigned value);
-  unsigned getSregUint(int sreg_id) const;
-  void setSregUint(int id, unsigned int value);
+  // unsigned getSregUint(int sreg_id) const;
+  // void setSregUint(int id, unsigned int value);
 
   addr_t GetWarpPC() { return m_PC;}
   void SetWarpPC(unsigned pc) { m_PC = pc; }
   void IncWarpPC(int increment) { m_PC += increment; }
 
-  void SetMemoryWait(bool mem_wait) { this->memory_wait = mem_wait; }
   void SetFinished(bool finished) { this->finished = finished; }
-
-  void SetScalarMemoryRead(bool scalar_memory_read)
-  {
-	this->scalar_memory_read = scalar_memory_read;
-  }
-
-  /// Flag set during instruction emulation.
-  void SetVectorMemoryGlobalCoherency(bool vector_mem_global_coherency)
-  {
-	this->vector_memory_global_coherency = vector_mem_global_coherency;
-  }
 
   // FIXME m_PC should converged for SimtStack_entry
   unsigned m_PC;
-  Register sreg[256];
+  // Register sreg[256];
 
-  bool vector_memory_read = false;   // vecor memory write
-  bool vector_memory_write = false;   // vecor memory write
-  bool vector_memory_atomic = false;  // vector meory read
-  bool scalar_memory_read = false;    // scalar memory read
-  bool ds_read = false;       // wait instruction
-  bool ds_wait = false;       // wait instruction
-  bool memory_wait = false;   // wai instruction
   bool at_barrier = false;    // barrier instruction
   bool finished = false;      // warp is done
-  bool vector_memory_global_coherency = false;
   bool barrier_instruction = false;
+
+  class WarpState *m_warp_state;
 
 };
 

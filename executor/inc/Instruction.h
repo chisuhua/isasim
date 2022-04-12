@@ -2,8 +2,12 @@
 // #include "inc/Compute.h"
 #include "inc/ExecContext.h"
 //#include "inc/ThreadBlock.h"
-#include "inc/ThreadItem.h"
+#include "inc/WarpState.h"
 #include "inc/OperandUtil.h"
+#include <string>
+#include <map>
+#include <cctype>
+#include <algorithm>
 
 #define DEFINSTEND(_fmt)
 #define DEFINST2(_name)
@@ -118,7 +122,7 @@ class Instruction {
 #define DEFFMT(_fmt, _fmt_str, _enc)
 #define DEFEND(_fmt)
 #define DEFINST(_name, _fmt_str, _opcode, _size, _flags)      \
-  virtual void _name (ThreadItem*);
+  virtual void _name (WarpState*);
 //      printf("Instruction is not unimplemented\n");
 //  }
 #include <opcodes.def>
@@ -173,13 +177,10 @@ class Instruction {
 	Bytes *getBytes() { return &bytes; }
 	uint32_t GetSize() { return m_size; }
 	op_type_t GetOpType() { return m_op_type; }
-	bool is_exit() {
-        // TODO
-        return false;
-    }
 
     virtual void Decode(uint64_t _opcode) = 0;
-    virtual void Execute(ThreadItem *item) = 0;
+    virtual void print() = 0;
+    virtual void Execute(WarpState *item, uint32_t lane_id = 0) = 0;
     virtual ~Instruction() = default;
 
  public:
@@ -302,7 +303,7 @@ class Instruction {
   bool m_is_warp_op = false;
   bool m_exit;
 
-  // typedef void (Instruction::*FuncPtr)(ThreadItem *ti);
+  // typedef void (Instruction::*FuncPtr)(WarpState *ti);
 
 #define DEFINST(_name, _fmt_str, _opcode, _size, _flags)
 #define DEFFMT(_fmt, _fmt_str, _enc) bool is_##_fmt = false;
@@ -322,29 +323,34 @@ class Instruction {
 #define DEFFMT(_fmt, _fmt_str, _enc)                             \
 class Instruction##_fmt : public Instruction {                     \
   public:                                                           \
-    typedef void (Instruction##_fmt::*FuncPtr)(ThreadItem *ti);  \
+    typedef void (Instruction##_fmt::*FuncPtr)(WarpState *ti, uint32_t lane_id);  \
     FuncPtr InstFuncTable[255];                                     \
     std::map<uint32_t, std::string> opcode_str;                     \
+                                                                    \
+    void addOp(uint32_t opcode, std::string op_str) {               \
+       transform(op_str.begin(),op_str.end(), op_str.begin(), ::tolower); \
+       opcode_str.insert(std::make_pair(opcode, op_str));           \
+    }                                                               \
                                                                     \
     Instruction##_fmt(uint64_t opcode) {                            \
         print##_fmt(bytes._fmt);                                    \
         is_##_fmt = true;                                           \
     }                                                               \
     virtual void Decode(uint64_t opcode);                           \
+    virtual void print();                                           \
                                                                     \
-    virtual void Execute(ThreadItem *item) override {               \
-        printf("INFO: Execute %s(%x)\n", opcode_str[info.op].c_str(), info.op);    \
-        (this->*(InstFuncTable[info.op]))(item);                    \
+    virtual void Execute(WarpState *item, uint32_t lane_id = 0) override {               \
+        (this->*(InstFuncTable[info.op]))(item, lane_id);                    \
     }                                                               \
                                                                     \
-    static shared_ptr<Instruction##_fmt> make_instruction(uint64_t opcode) { \
+    static std::shared_ptr<Instruction##_fmt> make_instruction(uint64_t opcode) { \
         static bool initialized {false};                                    \
-        static shared_ptr<Instruction##_fmt> inst = make_shared<Instruction##_fmt>(opcode);        \
+        static std::shared_ptr<Instruction##_fmt> inst = std::make_shared<Instruction##_fmt>(opcode);        \
         if (!initialized) {
 
 #define DEFINST(_name, _fmt_str, _opcode, _size, _flags)            \
 	        (inst->InstFuncTable)[_opcode] = &Instruction##_fmt_str::_name; \
-            inst->opcode_str.insert(std::make_pair(_opcode, #_name));  \
+            inst->addOp(_opcode, #_name);                           \
             // printf("INFO: make_instruction for (%s)%x\n", #_name, _opcode);
             //
 #define DEFINSTEND(_fmt_str)                                        \
@@ -354,7 +360,7 @@ class Instruction##_fmt : public Instruction {                     \
     }
 
 #define DEFINST2(_name)                                             \
-    virtual void _name (ThreadItem*);
+    virtual void _name (WarpState*, uint32_t lane_id = 0);
 
 #define DEFEND(_fmt)                                                \
 };
@@ -367,7 +373,7 @@ class Instruction##_fmt : public Instruction {                     \
 #undef DEFEND
 
 
-shared_ptr<Instruction> make_instruction(uint64_t _opcode, unsigned int address);
+std::shared_ptr<Instruction> make_instruction(uint64_t _opcode);
 
 
 class WarpInst {

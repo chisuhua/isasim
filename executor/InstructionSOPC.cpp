@@ -19,8 +19,13 @@ void InstructionSOPC::Decode(uint64_t _opcode) {
 
 }
 
+void InstructionSOPC::print() {
+    printf("Instruction: %s(%x)\n", opcode_str[info.op].c_str(), info.op);
+}
+
+
 // scc = (S0.i == S1.i).
-void InstructionSOPC::S_CMP_EQ_I32(ThreadItem *item)
+void InstructionSOPC::S_CMP_EQ_I32(WarpState *item, uint32_t lane_id)
 {
 	Register s0;
 	Register s1;
@@ -49,7 +54,7 @@ void InstructionSOPC::S_CMP_EQ_I32(ThreadItem *item)
 }
 
 // scc = (S0.i > S1.i).
-void InstructionSOPC::S_CMP_GT_I32(ThreadItem *item)
+void InstructionSOPC::S_CMP_GT_I32(WarpState *item, uint32_t lane_id)
 {
 	Register s0;
 	Register s1;
@@ -79,7 +84,7 @@ void InstructionSOPC::S_CMP_GT_I32(ThreadItem *item)
 }
 
 // scc = (S0.i >= S1.i).
-void InstructionSOPC::S_CMP_GE_I32(ThreadItem *item)
+void InstructionSOPC::S_CMP_GE_I32(WarpState *item, uint32_t lane_id)
 {
 	Register s0;
 	Register s1;
@@ -108,7 +113,7 @@ void InstructionSOPC::S_CMP_GE_I32(ThreadItem *item)
 }
 
 // scc = (S0.i < S1.i).
-void InstructionSOPC::S_CMP_LT_I32(ThreadItem *item)
+void InstructionSOPC::S_CMP_LT_I32(WarpState *item, uint32_t lane_id)
 {
 	Register s0;
 	Register s1;
@@ -137,7 +142,7 @@ void InstructionSOPC::S_CMP_LT_I32(ThreadItem *item)
 }
 
 // scc = (S0.i <= S1.i).
-void InstructionSOPC::S_CMP_LE_I32(ThreadItem *item)
+void InstructionSOPC::S_CMP_LE_I32(WarpState *item, uint32_t lane_id)
 {
 	Register s0;
 	Register s1;
@@ -166,7 +171,7 @@ void InstructionSOPC::S_CMP_LE_I32(ThreadItem *item)
 }
 
 // scc = (S0.u > S1.u).
-void InstructionSOPC::S_CMP_GT_U32(ThreadItem *item)
+void InstructionSOPC::S_CMP_GT_U32(WarpState *item, uint32_t lane_id)
 {
 	Register s0;
 	Register s1;
@@ -195,7 +200,7 @@ void InstructionSOPC::S_CMP_GT_U32(ThreadItem *item)
 }
 
 // scc = (S0.u >= S1.u).
-void InstructionSOPC::S_CMP_GE_U32(ThreadItem *item)
+void InstructionSOPC::S_CMP_GE_U32(WarpState *item, uint32_t lane_id)
 {
 	Register s0;
 	Register s1;
@@ -224,7 +229,7 @@ void InstructionSOPC::S_CMP_GE_U32(ThreadItem *item)
 }
 
 // scc = (S0.u <= S1.u).
-void InstructionSOPC::S_CMP_LE_U32(ThreadItem *item)
+void InstructionSOPC::S_CMP_LE_U32(WarpState *item, uint32_t lane_id)
 {
 	Register s0;
 	Register s1;

@@ -11,9 +11,12 @@ void InstructionVOP3A::Decode(uint64_t _opcode) {
     m_size = 8;
 }
 
+void InstructionVOP3A::print() {
+    printf("Instruction: %s(%x)\n", opcode_str[info.op].c_str(), info.op);
+}
 /* D.u = VCC[i] ? S1.u : S0.u (i = threadID in wave); VOP3: specify VCC as a
  * scalar GPR in S2. */
-void InstructionVOP3A::V_CNDMASK_B32_VOP3A(ThreadItem *item)
+void InstructionVOP3A::V_CNDMASK_B32_VOP3A(WarpState *item, uint32_t lane_id)
 {
 	Register s0;
 	Register s1;
@@ -28,7 +31,7 @@ void InstructionVOP3A::V_CNDMASK_B32_VOP3A(ThreadItem *item)
 	// Load operands from registers.
 	s0.as_uint = ReadReg(opcode.src0);
 	s1.as_uint = ReadReg(opcode.src1);
-	vcci = ReadBitmaskSReg(opcode.src2);
+	vcci = ReadBitmaskSReg(opcode.src2, lane_id);
 
 	// Perform "floating-point negation"
 	if (opcode.neg & 1)
@@ -41,12 +44,12 @@ void InstructionVOP3A::V_CNDMASK_B32_VOP3A(ThreadItem *item)
 	result.as_uint = (vcci) ? s1.as_uint : s0.as_uint;
 
 	// Write the results.
-	WriteVReg(opcode.vdst, result.as_uint);
+	WriteVReg(opcode.vdst, result.as_uint, lane_id);
 
 }
 
 // D.f = S0.f + S1.f.
-void InstructionVOP3A::V_ADD_F32_VOP3A(ThreadItem *item)
+void InstructionVOP3A::V_ADD_F32_VOP3A(WarpState *item, uint32_t lane_id)
 {
 	Register s0;
 	Register s1;
@@ -77,12 +80,12 @@ void InstructionVOP3A::V_ADD_F32_VOP3A(ThreadItem *item)
 	sum.as_float = s0.as_float + s1.as_float;
 
 	// Write the results.
-	WriteVReg(opcode.vdst, sum.as_uint);
+	WriteVReg(opcode.vdst, sum.as_uint, lane_id);
 
 }
 
 // D.f = S1.f - S0.f
-void InstructionVOP3A::V_SUBREV_F32_VOP3A(ThreadItem *item)
+void InstructionVOP3A::V_SUBREV_F32_VOP3A(WarpState *item, uint32_t lane_id)
 {
 	Register s0;
 	Register s1;
@@ -113,13 +116,13 @@ void InstructionVOP3A::V_SUBREV_F32_VOP3A(ThreadItem *item)
 	diff.as_float = s1.as_float - s0.as_float;
 
 	// Write the results.
-	WriteVReg(opcode.vdst, diff.as_uint);
+	WriteVReg(opcode.vdst, diff.as_uint, lane_id);
 
 }
 
 // D.f = S0.f * S1.f (DX9 rules, 0.0*x = 0.0).
 /*
-void InstructionVOP3A::V_MUL_LEGACY_F32_VOP3A(ThreadItem *item)
+void InstructionVOP3A::V_MUL_LEGACY_F32_VOP3A(WarpState *item, uint32_t lane_id)
 {
 	Register s0;
 	Register s1;
@@ -145,7 +148,7 @@ void InstructionVOP3A::V_MUL_LEGACY_F32_VOP3A(ThreadItem *item)
 }*/
 
 // D.f = S0.f * S1.f.
-void InstructionVOP3A::V_MUL_F32_VOP3A(ThreadItem *item)
+void InstructionVOP3A::V_MUL_F32_VOP3A(WarpState *item, uint32_t lane_id)
 {
 	Register s0;
 	Register s1;
@@ -176,12 +179,12 @@ void InstructionVOP3A::V_MUL_F32_VOP3A(ThreadItem *item)
 	result.as_float = s0.as_float * s1.as_float;
 
 	// Write the results.
-	WriteVReg(opcode.vdst, result.as_uint);
+	WriteVReg(opcode.vdst, result.as_uint, lane_id);
 
 }
 
 // D.f = S0. * S1..
-void InstructionVOP3A::V_MUL_I32_I24_VOP3A(ThreadItem *item)
+void InstructionVOP3A::V_MUL_I32_I24_VOP3A(WarpState *item, uint32_t lane_id)
 {
 	Register s0;
 	Register s1;
@@ -204,12 +207,12 @@ void InstructionVOP3A::V_MUL_I32_I24_VOP3A(ThreadItem *item)
 	product.as_int = s0.as_int * s1.as_int;
 
 	// Write the results.
-	WriteVReg(opcode.vdst, product.as_uint);
+	WriteVReg(opcode.vdst, product.as_uint, lane_id);
 
 }
 
 // D.f = max(S0.f, S1.f).
-void InstructionVOP3A::V_MAX_F32_VOP3A(ThreadItem *item)
+void InstructionVOP3A::V_MAX_F32_VOP3A(WarpState *item, uint32_t lane_id)
 {
 	Register s0;
 	Register s1;
@@ -241,12 +244,12 @@ void InstructionVOP3A::V_MAX_F32_VOP3A(ThreadItem *item)
 		s0.as_float : s1.as_float;
 
 	// Write the results.
-	WriteVReg(opcode.vdst, result.as_uint);
+	WriteVReg(opcode.vdst, result.as_uint, lane_id);
 
 }
 
 // D.f = S0.f * S1.f + S2.f.
-void InstructionVOP3A::V_MAD_F32(ThreadItem *item)
+void InstructionVOP3A::V_MAD_F32(WarpState *item, uint32_t lane_id)
 {
 	Register s0;
 	Register s1;
@@ -281,12 +284,12 @@ void InstructionVOP3A::V_MAD_F32(ThreadItem *item)
 	result.as_float = s0.as_float * s1.as_float + s2.as_float;
 
 	// Write the results.
-	WriteVReg(opcode.vdst, result.as_uint);
+	WriteVReg(opcode.vdst, result.as_uint, lane_id);
 
 }
 
 // D.u = S0.u[23:0] * S1.u[23:0] + S2.u[31:0].
-void InstructionVOP3A::V_MAD_U32_U24(ThreadItem *item)
+void InstructionVOP3A::V_MAD_U32_U24(WarpState *item, uint32_t lane_id)
 {
 	Register s0;
 	Register s1;
@@ -310,13 +313,13 @@ void InstructionVOP3A::V_MAD_U32_U24(ThreadItem *item)
 	result.as_uint = s0.as_uint * s1.as_uint + s2.as_uint;
 
 	// Write the results.
-	WriteVReg(opcode.vdst, result.as_uint);
+	WriteVReg(opcode.vdst, result.as_uint, lane_id);
 
 }
 
 /* D.u = (S0.u >> S1.u[4:0]) & ((1 << S2.u[4:0]) - 1); bitfield extract,
  * S0=data, S1=field_offset, S2=field_width. */
-void InstructionVOP3A::V_BFE_U32(ThreadItem *item)
+void InstructionVOP3A::V_BFE_U32(WarpState *item, uint32_t lane_id)
 {
 	Register s0;
 	Register s1;
@@ -340,13 +343,13 @@ void InstructionVOP3A::V_BFE_U32(ThreadItem *item)
 	result.as_uint = (s0.as_uint >> s1.as_uint) & ((1 << s2.as_uint) - 1);
 
 	// Write the results.
-	WriteVReg(opcode.vdst, result.as_uint);
+	WriteVReg(opcode.vdst, result.as_uint, lane_id);
 
 }
 
 /* D.i = (S0.i >> S1.u[4:0]) & ((1 << S2.u[4:0]) - 1); bitfield extract,
  * S0=data, S1=field_offset, S2=field_width. */
-void InstructionVOP3A::V_BFE_I32(ThreadItem *item)
+void InstructionVOP3A::V_BFE_I32(WarpState *item, uint32_t lane_id)
 {
 	Register s0;
 	Register s1;
@@ -382,12 +385,12 @@ void InstructionVOP3A::V_BFE_I32(ThreadItem *item)
 	}
 
 	// Write the results.
-	WriteVReg(opcode.vdst, result.as_uint);
+	WriteVReg(opcode.vdst, result.as_uint, lane_id);
 
 }
 
 // D.u = (S0.u & S1.u) | (~S0.u & S2.u).
-void InstructionVOP3A::V_BFI_B32(ThreadItem *item)
+void InstructionVOP3A::V_BFI_B32(WarpState *item, uint32_t lane_id)
 {
 	Register s0;
 	Register s1;
@@ -409,12 +412,12 @@ void InstructionVOP3A::V_BFI_B32(ThreadItem *item)
 		(~s0.as_uint & s2.as_uint);
 
 	// Write the results.
-	WriteVReg(opcode.vdst, result.as_uint);
+	WriteVReg(opcode.vdst, result.as_uint, lane_id);
 
 }
 
 // D.f = S0.f * S1.f + S2.f
-void InstructionVOP3A::V_FMA_F32(ThreadItem *item)
+void InstructionVOP3A::V_FMA_F32(WarpState *item, uint32_t lane_id)
 {
 	Register s0;
 	Register s1;
@@ -449,18 +452,18 @@ void InstructionVOP3A::V_FMA_F32(ThreadItem *item)
 	result.as_float = (s0.as_float * s1.as_float) + s2.as_float;
 
 	// Write the results.
-	WriteVReg(opcode.vdst, result.as_uint);
+	WriteVReg(opcode.vdst, result.as_uint, lane_id);
 
 }
 
 // D.d = S0.d * S1.d + S2.d
-void InstructionVOP3A::V_FMA_F64(ThreadItem *item)
+void InstructionVOP3A::V_FMA_F64(WarpState *item, uint32_t lane_id)
 {
 	ISAUnimplemented(item);
 }
 
 // D.u = ({S0,S1} >> S2.u[4:0]) & 0xFFFFFFFF.
-void InstructionVOP3A::V_ALIGNBIT_B32(ThreadItem *item)
+void InstructionVOP3A::V_ALIGNBIT_B32(WarpState *item, uint32_t lane_id)
 {
 	Register src2;
 	Register result;
@@ -487,18 +490,18 @@ void InstructionVOP3A::V_ALIGNBIT_B32(ThreadItem *item)
 	result.as_uint = (src.as_b64 >> src2.as_uint) & 0xFFFFFFFF;
 
 	// Write the results.
-	WriteVReg(opcode.vdst, result.as_uint);
+	WriteVReg(opcode.vdst, result.as_uint, lane_id);
 
 }
 
 /*
- *D.d = Special case divide fixup and flags(s0.d = Quotient, s1.d = Denominator, s2.d = Numerator).  void InstructionVOP3A::V_DIV_FIXUP_F64(ThreadItem *item)
+ *D.d = Special case divide fixup and flags(s0.d = Quotient, s1.d = Denominator, s2.d = Numerator).  void InstructionVOP3A::V_DIV_FIXUP_F64(WarpState *item, uint32_t lane_id)
 {
 	ISAUnimplemented(item);
 }
  */
 
-void InstructionVOP3A::V_LSHL_B64(ThreadItem *item)
+void InstructionVOP3A::V_LSHL_B64(WarpState *item, uint32_t lane_id)
 {
 	// Input operands
 	union
@@ -531,25 +534,25 @@ void InstructionVOP3A::V_LSHL_B64(ThreadItem *item)
 	// Cast uint32 to unsigned int
 	result_lo.as_uint = (unsigned int)dst.as_reg[0];
 	result_hi.as_uint = (unsigned int)dst.as_reg[1];
-	WriteVReg(opcode.vdst, result_lo.as_uint);
-	WriteVReg(opcode.vdst + 1, result_hi.as_uint);
+	WriteVReg(opcode.vdst, result_lo.as_uint, lane_id);
+	WriteVReg(opcode.vdst + 1, result_hi.as_uint, lane_id);
 }
 
 
 // D.d = min(S0.d, S1.d).
-void InstructionVOP3A::V_MIN_F64(ThreadItem *item)
+void InstructionVOP3A::V_MIN_F64(WarpState *item, uint32_t lane_id)
 {
 	ISAUnimplemented(item);
 }
 
 // D.d = max(S0.d, S1.d).
-void InstructionVOP3A::V_MAX_F64(ThreadItem *item)
+void InstructionVOP3A::V_MAX_F64(WarpState *item, uint32_t lane_id)
 {
 	ISAUnimplemented(item);
 }
 
 // D.u = S0.u * S1.u.
-void InstructionVOP3A::V_MUL_LO_U32(ThreadItem *item)
+void InstructionVOP3A::V_MUL_LO_U32(WarpState *item, uint32_t lane_id)
 {
 	Register s0;
 	Register s1;
@@ -568,27 +571,27 @@ void InstructionVOP3A::V_MUL_LO_U32(ThreadItem *item)
 	result.as_uint = s0.as_uint * s1.as_uint;
 
 	// Write the results.
-	WriteVReg(opcode.vdst, result.as_uint);
+	WriteVReg(opcode.vdst, result.as_uint, lane_id);
 
 }
 
 /*
  *D.d = Special case divide FMA with scale and flags(s0.d = Quotient, s1.d = Denominator,
  *s2.d = Numerator).
-void InstructionVOP3A::V_DIV_FMAS_F64(ThreadItem *item)
+void InstructionVOP3A::V_DIV_FMAS_F64(WarpState *item, uint32_t lane_id)
 {
 	ISAUnimplemented(item);
 }
 
 // D.d = Look Up 2/PI (S0.d) with segment select S1.u[4:0].
-void InstructionVOP3A::V_TRIG_PREOP_F64(ThreadItem *item)
+void InstructionVOP3A::V_TRIG_PREOP_F64(WarpState *item, uint32_t lane_id)
 {
 	ISAUnimplemented(item);
 }
  */
 
 // D.u = (S0.u * S1.u)>>32
-void InstructionVOP3A::V_MUL_HI_U32(ThreadItem *item)
+void InstructionVOP3A::V_MUL_HI_U32(WarpState *item, uint32_t lane_id)
 {
 	Register s0;
 	Register s1;
@@ -609,12 +612,12 @@ void InstructionVOP3A::V_MUL_HI_U32(ThreadItem *item)
 		(unsigned long long)s1.as_uint) >> 32);
 
 	// Write the results.
-	WriteVReg(opcode.vdst, result.as_uint);
+	WriteVReg(opcode.vdst, result.as_uint, lane_id);
 
 }
 
 // D.i = S0.i * S1.i.
-void InstructionVOP3A::V_MUL_LO_I32(ThreadItem *item)
+void InstructionVOP3A::V_MUL_LO_I32(WarpState *item, uint32_t lane_id)
 {
 	Register s0;
 	Register s1;
@@ -634,12 +637,12 @@ void InstructionVOP3A::V_MUL_LO_I32(ThreadItem *item)
 
 
 	// Write the results.
-	WriteVReg(opcode.vdst, result.as_uint);
+	WriteVReg(opcode.vdst, result.as_uint, lane_id);
 
 }
 
 // D.f = S0.f - floor(S0.f).
-void InstructionVOP3A::V_FRACT_F32_VOP3A(ThreadItem *item)
+void InstructionVOP3A::V_FRACT_F32_VOP3A(WarpState *item, uint32_t lane_id)
 {
 	Register s0;
 	Register result;
@@ -665,12 +668,12 @@ void InstructionVOP3A::V_FRACT_F32_VOP3A(ThreadItem *item)
 	result.as_float = s0.as_float - floorf(s0.as_float);
 
 	// Write the results.
-	WriteVReg(opcode.vdst, result.as_uint);
+	WriteVReg(opcode.vdst, result.as_uint, lane_id);
 
 }
 
 // D.u = (S0.f < S1.f).
-void InstructionVOP3A::V_CMP_LT_F32_VOP3A(ThreadItem *item)
+void InstructionVOP3A::V_CMP_LT_F32_VOP3A(WarpState *item, uint32_t lane_id)
 {
 	Register s0;
 	Register s1;
@@ -701,12 +704,12 @@ void InstructionVOP3A::V_CMP_LT_F32_VOP3A(ThreadItem *item)
 	result.as_uint = (s0.as_float < s1.as_float);
 
 	// Write the results.
-	WriteBitmaskSReg(opcode.vdst, result.as_uint);
+	WriteBitmaskSReg(opcode.vdst, result.as_uint, lane_id);
 
 }
 
 // D.u = (S0.f == S1.f).
-void InstructionVOP3A::V_CMP_EQ_F32_VOP3A(ThreadItem *item)
+void InstructionVOP3A::V_CMP_EQ_F32_VOP3A(WarpState *item, uint32_t lane_id)
 {
 	Register s0;
 	Register s1;
@@ -737,18 +740,18 @@ void InstructionVOP3A::V_CMP_EQ_F32_VOP3A(ThreadItem *item)
 	result.as_uint = (s0.as_float == s1.as_float);
 
 	// Write the results.
-	WriteBitmaskSReg(opcode.vdst, result.as_uint);
+	WriteBitmaskSReg(opcode.vdst, result.as_uint, lane_id);
 
 }
 
 // vcc = (S0.f <= S1.f).
-void InstructionVOP3A::V_CMP_LE_F32_VOP3A(ThreadItem *item)
+void InstructionVOP3A::V_CMP_LE_F32_VOP3A(WarpState *item, uint32_t lane_id)
 {
 	ISAUnimplemented(item);
 }
 
 // D.u = (S0.f > S1.f).
-void InstructionVOP3A::V_CMP_GT_F32_VOP3A(ThreadItem *item)
+void InstructionVOP3A::V_CMP_GT_F32_VOP3A(WarpState *item, uint32_t lane_id)
 {
 	Register s0;
 	Register s1;
@@ -779,18 +782,18 @@ void InstructionVOP3A::V_CMP_GT_F32_VOP3A(ThreadItem *item)
 	result.as_uint = (s0.as_float > s1.as_float);
 
 	// Write the results.
-	WriteBitmaskSReg(opcode.vdst, result.as_uint);
+	WriteBitmaskSReg(opcode.vdst, result.as_uint, lane_id);
 
 }
 
 // D.u = !(S0.f <= S1.f).
-void InstructionVOP3A::V_CMP_NLE_F32_VOP3A(ThreadItem *item)
+void InstructionVOP3A::V_CMP_NLE_F32_VOP3A(WarpState *item, uint32_t lane_id)
 {
 	ISAUnimplemented(item);
 }
 
 // D.u = !(S0.f == S1.f).
-void InstructionVOP3A::V_CMP_NEQ_F32_VOP3A(ThreadItem *item)
+void InstructionVOP3A::V_CMP_NEQ_F32_VOP3A(WarpState *item, uint32_t lane_id)
 {
 	Register s0;
 	Register s1;
@@ -821,12 +824,12 @@ void InstructionVOP3A::V_CMP_NEQ_F32_VOP3A(ThreadItem *item)
 	result.as_uint = !(s0.as_float == s1.as_float);
 
 	// Write the results.
-	WriteBitmaskSReg(opcode.vdst, result.as_uint);
+	WriteBitmaskSReg(opcode.vdst, result.as_uint, lane_id);
 
 }
 
 // D.u = !(S0.f < S1.f).
-void InstructionVOP3A::V_CMP_NLT_F32_VOP3A(ThreadItem *item)
+void InstructionVOP3A::V_CMP_NLT_F32_VOP3A(WarpState *item, uint32_t lane_id)
 {
 	Register s0;
 	Register s1;
@@ -857,18 +860,18 @@ void InstructionVOP3A::V_CMP_NLT_F32_VOP3A(ThreadItem *item)
 	result.as_uint = !(s0.as_float < s1.as_float);
 
 	// Write the results.
-	WriteBitmaskSReg(opcode.vdst, result.as_uint);
+	WriteBitmaskSReg(opcode.vdst, result.as_uint, lane_id);
 
 }
 
 // Comparison Operations
-void InstructionVOP3A::V_CMP_OP16_F64_VOP3A(ThreadItem *item)
+void InstructionVOP3A::V_CMP_OP16_F64_VOP3A(WarpState *item, uint32_t lane_id)
 {
 	ISAUnimplemented(item);
 }
 
 // D.u = (S0.i < S1.i).
-void InstructionVOP3A::V_CMP_LT_I32_VOP3A(ThreadItem *item)
+void InstructionVOP3A::V_CMP_LT_I32_VOP3A(WarpState *item, uint32_t lane_id)
 {
 	Register s0;
 	Register s1;
@@ -899,12 +902,12 @@ void InstructionVOP3A::V_CMP_LT_I32_VOP3A(ThreadItem *item)
 	result.as_uint = (s0.as_int < s1.as_int);
 
 	// Write the results.
-	WriteBitmaskSReg(opcode.vdst, result.as_uint);
+	WriteBitmaskSReg(opcode.vdst, result.as_uint, lane_id);
 
 }
 
 // D.u = (S0.i == S1.i).
-void InstructionVOP3A::V_CMP_EQ_I32_VOP3A(ThreadItem *item)
+void InstructionVOP3A::V_CMP_EQ_I32_VOP3A(WarpState *item, uint32_t lane_id)
 {
 	Register s0;
 	Register s1;
@@ -935,12 +938,12 @@ void InstructionVOP3A::V_CMP_EQ_I32_VOP3A(ThreadItem *item)
 	result.as_uint = (s0.as_int == s1.as_int);
 
 	// Write the results.
-	WriteBitmaskSReg(opcode.vdst, result.as_uint);
+	WriteBitmaskSReg(opcode.vdst, result.as_uint, lane_id);
 
 }
 
 // D.u = (S0.i <= S1.i).
-void InstructionVOP3A::V_CMP_LE_I32_VOP3A(ThreadItem *item)
+void InstructionVOP3A::V_CMP_LE_I32_VOP3A(WarpState *item, uint32_t lane_id)
 {
 	Register s0;
 	Register s1;
@@ -971,12 +974,12 @@ void InstructionVOP3A::V_CMP_LE_I32_VOP3A(ThreadItem *item)
 	result.as_uint = (s0.as_int <= s1.as_int);
 
 	// Write the results.
-	WriteBitmaskSReg(opcode.vdst, result.as_uint);
+	WriteBitmaskSReg(opcode.vdst, result.as_uint, lane_id);
 
 }
 
 // D.u = (S0.i > S1.i).
-void InstructionVOP3A::V_CMP_GT_I32_VOP3A(ThreadItem *item)
+void InstructionVOP3A::V_CMP_GT_I32_VOP3A(WarpState *item, uint32_t lane_id)
 {
 	Register s0;
 	Register s1;
@@ -1007,12 +1010,12 @@ void InstructionVOP3A::V_CMP_GT_I32_VOP3A(ThreadItem *item)
 	result.as_uint = (s0.as_int > s1.as_int);
 
 	// Write the results.
-	WriteBitmaskSReg(opcode.vdst, result.as_uint);
+	WriteBitmaskSReg(opcode.vdst, result.as_uint, lane_id);
 
 }
 
 // D.u = (S0.i <> S1.i).
-void InstructionVOP3A::V_CMP_NE_I32_VOP3A(ThreadItem *item)
+void InstructionVOP3A::V_CMP_NE_I32_VOP3A(WarpState *item, uint32_t lane_id)
 {
 	Register s0;
 	Register s1;
@@ -1043,12 +1046,12 @@ void InstructionVOP3A::V_CMP_NE_I32_VOP3A(ThreadItem *item)
 	result.as_uint = !(s0.as_int == s1.as_int);
 
 	// Write the results.
-	WriteBitmaskSReg(opcode.vdst, result.as_uint);
+	WriteBitmaskSReg(opcode.vdst, result.as_uint, lane_id);
 
 }
 
 // D.u = (S0.i >= S1.i).
-void InstructionVOP3A::V_CMP_GE_I32_VOP3A(ThreadItem *item)
+void InstructionVOP3A::V_CMP_GE_I32_VOP3A(WarpState *item, uint32_t lane_id)
 {
 	Register s0;
 	Register s1;
@@ -1079,12 +1082,12 @@ void InstructionVOP3A::V_CMP_GE_I32_VOP3A(ThreadItem *item)
 	result.as_uint = (s0.as_int >= s1.as_int);
 
 	// Write the results.
-	WriteBitmaskSReg(opcode.vdst, result.as_uint);
+	WriteBitmaskSReg(opcode.vdst, result.as_uint, lane_id);
 
 }
 
 // D.u = (S0.i == S1.i). Also write EXEC
-void InstructionVOP3A::V_CMPX_EQ_I32_VOP3A(ThreadItem *item)
+void InstructionVOP3A::V_CMPX_EQ_I32_VOP3A(WarpState *item, uint32_t lane_id)
 {
 	Register s0;
 	Register s1;
@@ -1115,21 +1118,21 @@ void InstructionVOP3A::V_CMPX_EQ_I32_VOP3A(ThreadItem *item)
 	result.as_uint = (s0.as_int == s1.as_int);
 
 	// Write the results.
-	WriteBitmaskSReg(opcode.vdst, result.as_uint);
+	WriteBitmaskSReg(opcode.vdst, result.as_uint, lane_id);
 
 	// Write EXEC
-	WriteBitmaskSReg(RegisterExec, result.as_uint);
+	WriteBitmaskSReg(RegisterExec, result.as_uint, lane_id);
 
 }
 
 // D = IEEE numeric class function specified in S1.u, performed on S0.d.
-void InstructionVOP3A::V_CMP_CLASS_F64_VOP3A(ThreadItem *item)
+void InstructionVOP3A::V_CMP_CLASS_F64_VOP3A(WarpState *item, uint32_t lane_id)
 {
 	ISAUnimplemented(item);
 }
 
 // D.u = (S0.u < S1.u).
-void InstructionVOP3A::V_CMP_LT_U32_VOP3A(ThreadItem *item)
+void InstructionVOP3A::V_CMP_LT_U32_VOP3A(WarpState *item, uint32_t lane_id)
 {
 	Register s0;
 	Register s1;
@@ -1148,12 +1151,12 @@ void InstructionVOP3A::V_CMP_LT_U32_VOP3A(ThreadItem *item)
 	result.as_uint = (s0.as_uint < s1.as_uint);
 
 	// Write the results.
-	WriteBitmaskSReg(opcode.vdst, result.as_uint);
+	WriteBitmaskSReg(opcode.vdst, result.as_uint, lane_id);
 
 }
 
 // D.u = (S0.u <= S1.u).
-void InstructionVOP3A::V_CMP_LE_U32_VOP3A(ThreadItem *item)
+void InstructionVOP3A::V_CMP_LE_U32_VOP3A(WarpState *item, uint32_t lane_id)
 {
 	Register s0;
 	Register s1;
@@ -1172,12 +1175,12 @@ void InstructionVOP3A::V_CMP_LE_U32_VOP3A(ThreadItem *item)
 	result.as_uint = (s0.as_uint <= s1.as_uint);
 
 	// Write the results.
-	WriteBitmaskSReg(opcode.vdst, result.as_uint);
+	WriteBitmaskSReg(opcode.vdst, result.as_uint, lane_id);
 
 }
 
 // D.u = (S0.u > S1.u).
-void InstructionVOP3A::V_CMP_GT_U32_VOP3A(ThreadItem *item)
+void InstructionVOP3A::V_CMP_GT_U32_VOP3A(WarpState *item, uint32_t lane_id)
 {
 	Register s0;
 	Register s1;
@@ -1196,11 +1199,11 @@ void InstructionVOP3A::V_CMP_GT_U32_VOP3A(ThreadItem *item)
 	result.as_uint = (s0.as_uint > s1.as_uint);
 
 	// Write the results.
-	WriteBitmaskSReg(opcode.vdst, result.as_uint);
+	WriteBitmaskSReg(opcode.vdst, result.as_uint, lane_id);
 
 }
 
-void InstructionVOP3A::V_CMP_LG_U32_VOP3A(ThreadItem *item)
+void InstructionVOP3A::V_CMP_LG_U32_VOP3A(WarpState *item, uint32_t lane_id)
 {
 	Register s0;
 	Register s1;
@@ -1220,12 +1223,12 @@ void InstructionVOP3A::V_CMP_LG_U32_VOP3A(ThreadItem *item)
 		(s0.as_uint > s1.as_uint));
 
 	// Write the results.
-	WriteBitmaskSReg(opcode.vdst, result.as_uint);
+	WriteBitmaskSReg(opcode.vdst, result.as_uint, lane_id);
 
 }
 
 // D.u = (S0.u >= S1.u).
-void InstructionVOP3A::V_CMP_GE_U32_VOP3A(ThreadItem *item)
+void InstructionVOP3A::V_CMP_GE_U32_VOP3A(WarpState *item, uint32_t lane_id)
 {
 	Register s0;
 	Register s1;
@@ -1244,18 +1247,18 @@ void InstructionVOP3A::V_CMP_GE_U32_VOP3A(ThreadItem *item)
 	result.as_uint = (s0.as_uint >= s1.as_uint);
 
 	// Write the results.
-	WriteBitmaskSReg(opcode.vdst, result.as_uint);
+	WriteBitmaskSReg(opcode.vdst, result.as_uint, lane_id);
 
 }
 
 // D.u = (S0 < S1)
-void InstructionVOP3A::V_CMP_LT_U64_VOP3A(ThreadItem *item)
+void InstructionVOP3A::V_CMP_LT_U64_VOP3A(WarpState *item, uint32_t lane_id)
 {
 	ISAUnimplemented(item);
 }
 
 // Max of three numbers.
-void InstructionVOP3A::V_MAX3_I32(ThreadItem *item)
+void InstructionVOP3A::V_MAX3_I32(WarpState *item, uint32_t lane_id)
 {
 	Register s0;
 	Register s1;
@@ -1294,12 +1297,12 @@ void InstructionVOP3A::V_MAX3_I32(ThreadItem *item)
 	}
 
 	// Write the results.
-	WriteVReg(opcode.vdst, max.as_uint);
+	WriteVReg(opcode.vdst, max.as_uint, lane_id);
 
 }
 
 // Median of three numbers.
-void InstructionVOP3A::V_MED3_I32(ThreadItem *item)
+void InstructionVOP3A::V_MED3_I32(WarpState *item, uint32_t lane_id)
 {
 	Register s0;
 	Register s1;
@@ -1344,12 +1347,12 @@ void InstructionVOP3A::V_MED3_I32(ThreadItem *item)
 	}
 
 	// Write the results.
-	WriteVReg(opcode.vdst, median.as_uint);
+	WriteVReg(opcode.vdst, median.as_uint, lane_id);
 
 }
 
 // D = S0.u >> S1.u[4:0].
-void InstructionVOP3A::V_LSHR_B64(ThreadItem *item)
+void InstructionVOP3A::V_LSHR_B64(WarpState *item, uint32_t lane_id)
 {
 	union
 	{
@@ -1379,13 +1382,13 @@ void InstructionVOP3A::V_LSHR_B64(ThreadItem *item)
 	// Write the results.
 	result_lo.as_uint = value.as_reg[0];
 	result_hi.as_uint = value.as_reg[1];
-	WriteVReg(opcode.vdst, result_lo.as_uint);
-	WriteVReg(opcode.vdst + 1, result_hi.as_uint);
+	WriteVReg(opcode.vdst, result_lo.as_uint, lane_id);
+	WriteVReg(opcode.vdst + 1, result_hi.as_uint, lane_id);
 
 }
 
 // D = S0.u >> S1.u[4:0] (Arithmetic shift)
-void InstructionVOP3A::V_ASHR_I64(ThreadItem *item)
+void InstructionVOP3A::V_ASHR_I64(WarpState *item, uint32_t lane_id)
 {
 	union
 	{
@@ -1415,13 +1418,13 @@ void InstructionVOP3A::V_ASHR_I64(ThreadItem *item)
 	// Write the results.
 	result_lo.as_uint = value.as_reg[0];
 	result_hi.as_uint = value.as_reg[1];
-	WriteVReg(opcode.vdst, result_lo.as_uint);
-	WriteVReg(opcode.vdst + 1, result_hi.as_uint);
+	WriteVReg(opcode.vdst, result_lo.as_uint, lane_id);
+	WriteVReg(opcode.vdst + 1, result_hi.as_uint, lane_id);
 
 }
 
 // D.d = S0.d + S1.d.
-void InstructionVOP3A::V_ADD_F64(ThreadItem *item)
+void InstructionVOP3A::V_ADD_F64(WarpState *item, uint32_t lane_id)
 {
 	union
 	{
@@ -1521,13 +1524,13 @@ void InstructionVOP3A::V_ADD_F64(ThreadItem *item)
 	// Write the results.
 	result_lo.as_uint = value.as_reg[0];
 	result_hi.as_uint = value.as_reg[1];
-	WriteVReg(opcode.vdst, result_lo.as_uint);
-	WriteVReg(opcode.vdst + 1, result_hi.as_uint);
+	WriteVReg(opcode.vdst, result_lo.as_uint, lane_id);
+	WriteVReg(opcode.vdst + 1, result_hi.as_uint, lane_id);
 
 }
 
 // D.d = S0.d * S1.d.
-void InstructionVOP3A::V_MUL_F64(ThreadItem *item)
+void InstructionVOP3A::V_MUL_F64(WarpState *item, uint32_t lane_id)
 {
 	union
 	{
@@ -1639,13 +1642,13 @@ void InstructionVOP3A::V_MUL_F64(ThreadItem *item)
 	// Write the results.
 	result_lo.as_uint = value.as_reg[0];
 	result_hi.as_uint = value.as_reg[1];
-	WriteVReg(opcode.vdst, result_lo.as_uint);
-	WriteVReg(opcode.vdst + 1, result_hi.as_uint);
+	WriteVReg(opcode.vdst, result_lo.as_uint, lane_id);
+	WriteVReg(opcode.vdst + 1, result_hi.as_uint, lane_id);
 
 }
 
 // D.d = Look Up 2/PI (S0.d) with segment select S1.u[4:0].
-void InstructionVOP3A::V_LDEXP_F64(ThreadItem *item)
+void InstructionVOP3A::V_LDEXP_F64(WarpState *item, uint32_t lane_id)
 {
 	ISAUnimplemented(item);
 }

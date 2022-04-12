@@ -5,13 +5,13 @@
 
 #include "inc/Instruction.h"
 
-shared_ptr<Instruction> make_instruction(uint64_t _opcode, unsigned int address)
+std::shared_ptr<Instruction> make_instruction(uint64_t _opcode)
 {
 	/* Initialize instruction */
     Instruction::Bytes opcode;
     opcode.dword = _opcode;
 
-    shared_ptr<Instruction> inst;
+    std::shared_ptr<Instruction> inst;
 
     if (false) {
 #define DEFINSTEND(_fmt)
@@ -20,7 +20,7 @@ shared_ptr<Instruction> make_instruction(uint64_t _opcode, unsigned int address)
 #define DEFEND(_fmt)
 #define DEFFMT(_fmt, _fmt_str, _enc)                                \
 	} else if (opcode._fmt.enc == _enc) {                           \
-        printf("INFO: PC(0x%x), make instruction for fmt enc: (%s)%x\n", address, _fmt_str, _enc);    \
+        printf("INFO: make instruction for fmt enc: (%s)%x\n", _fmt_str, _enc);    \
         inst = Instruction##_fmt::make_instruction(_opcode);
 #include <opcodes.def>
 #undef DEFINST
@@ -206,11 +206,11 @@ void Instruction::Clear()
     m_decoded = false;
 	bytes.dword = 0;
 	m_size = 0;
-	address = 0;
+	// address = 0;
 }
 
 #if 0
-static shared_ptr<Instruction> Instruction::make_instruction(uint64_t opcode, unsigned int address)
+static std::shared_ptr<Instruction> Instruction::make_instruction(uint64_t opcode, unsigned int address)
 {
 	/* Initialize instruction */
 	Bytes bytes

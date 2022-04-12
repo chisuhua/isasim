@@ -9,23 +9,6 @@ Warp::Warp(unsigned wid, unsigned warpSize, libcuda::gpgpu_context *ctx) {
 }
 
 void Warp::reset() {
-    // FIXME move to DSM
-	// Integer inline constants.
-	for(int i = 128; i < 193; i++)
-		sreg[i].as_int = i - 128;
-	for(int i = 193; i < 209; i++)
-		sreg[i].as_int = -(i - 192);
-
-	// Inline floats.
-	sreg[240].as_float = 0.5;
-	sreg[241].as_float = -0.5;
-	sreg[242].as_float = 1.0;
-	sreg[243].as_float = -1.0;
-	sreg[244].as_float = 2.0;
-	sreg[245].as_float = -2.0;
-	sreg[246].as_float = 4.0;
-	sreg[247].as_float = -4.0;
-
     m_stack.clear();
 }
 
@@ -295,63 +278,5 @@ void Warp::update(simt_mask_t &thread_done, addr_vector_t &next_pc,
     m_gpgpu_ctx->stats->ptx_file_line_stats_add_warp_divergence(top_pc, 1);
   }
 }
-uint32_t Warp::getSregUint(int sreg) const
-{
-	uint32_t value;
 
-	assert(sreg >= 0);
-	assert(sreg != 104);
-	assert(sreg != 105);
-	assert(sreg != 125);
-	assert((sreg < 209) || (sreg > 239));
-	assert((sreg < 248) || (sreg > 250));
-	assert(sreg != 254);
-	assert(sreg < 256);
-
-	if (sreg == RegisterVccz) {
-		if (this->sreg[RegisterVcc].as_uint == 0 &&
-			this->sreg[RegisterVcc+1].as_uint == 0)
-			value = 1;
-		else
-			value = 0;
-	} if (sreg == RegisterExecz) {
-		if (this->sreg[RegisterExec].as_uint == 0 &&
-			this->sreg[RegisterExec+1].as_uint == 0)
-			value = 1;
-		else
-			value = 0;
-	} else {
-		value = this->sreg[sreg].as_uint;
-	}
-
-	return value;
-}
-
-void Warp::setSregUint(int sreg, unsigned int value)
-{
-	assert(sreg >= 0);
-	assert(sreg != 104);
-	assert(sreg != 105);
-	assert(sreg != 125);
-	assert((sreg < 209) || (sreg > 239));
-	assert((sreg < 248) || (sreg > 250));
-	assert(sreg != 254);
-	assert(sreg < 256);
-
-	this->sreg[sreg].as_uint = value;
-
-	// Update VCCZ and EXECZ if necessary.
-	if (sreg == RegisterVcc || sreg == RegisterVcc + 1) {
-		this->sreg[RegisterVccz].as_uint =
-			!this->sreg[RegisterVcc].as_uint &
-			!this->sreg[RegisterVcc + 1].as_uint;
-	}
-	if (sreg == RegisterExec || sreg == RegisterExec + 1)
-	{
-		this->sreg[RegisterExecz].as_uint =
-			!this->sreg[RegisterExec].as_uint &
-			!this->sreg[RegisterExec + 1].as_uint;
-	}
-
-}
 

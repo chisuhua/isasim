@@ -1,11 +1,11 @@
-#include "inc/IsaSim.h"
+#include "inc/IsaGem5Sim.h"
 #include "inc/ThreadBlock.h"
 #include "KernelDispInfo.h"
 #include <algorithm>
 #include "../../libcuda/gpgpu_context.h"
 
-extern "C" IsaSim* make_isasim(libcuda::gpgpu_t* gpu, libcuda::gpgpu_context *ctx) {
-  IsaSim* sim = new IsaSim(gpu, ctx);
+extern "C" IsaGem5Sim* make_isagem5sim(gpgpu_t* gpu, gpgpu_context *ctx) {
+  IsaGem5Sim* sim = new IsaGem5Sim(gpu, ctx);
   return sim;
 }
 
@@ -59,56 +59,14 @@ unsigned max_cta(const struct DispatchInfo *disp_info,
   return result;
 }
 
+void IsaGem5Sim::make_threaditem(dim3 nctaid, dim3 
+
 /*!
 This function simulates the CUDA code functionally, it takes a disp_info_t
 parameter which holds the data for the CUDA kernel to be executed
 !*/
-void IsaSim::launch(DispatchInfo *disp_info, unsigned kernel_uid, bool openCL) {
+void IsaGem5Sim::launch(DispatchInfo &disp_info, unsigned kernel_uid, bool openCL) {
   KernelInfo *kernel = new KernelInfo(disp_info);
-  uint32_t kernel_ctrl = kernel->kernel_ctrl();
-  // when kerneInfo is setup, it will fill kernel const buffer
-  // param_addr
-  // local_mem_addr
-  // and when each cta launch it will setup block_idx in warp sreg
-  // it will be access as icache
-  kernel->state()->setConstReg(0, kernel->state()->getParamAddr());
-  kernel->state()->setConstReg(1, kernel->state()->getLocalAddr());
-
-  // FIXME since it in icache, it can setup in driver side or cp
-  // fill kernel level const regs
-  uint32_t const_reg_num = KERNEL_CONST_REG_BASE ;
-  // below behavior is same as coasm, which kernel access reg in same way
-  if ((kernel_ctrl >> KERNEL_CTRL_BIT_GRID_DIM_X) & 0x1) {
-      kernel->state()->setConstReg(const_reg_num, kernel->get_grid_dim().x);
-      const_reg_num++;
-  }
-
-  if ((kernel_ctrl >> KERNEL_CTRL_BIT_GRID_DIM_Y) & 0x1) {
-      kernel->state()->setConstReg(const_reg_num, kernel->get_grid_dim().y);
-      const_reg_num++;
-  }
-
-  if ((kernel_ctrl >> KERNEL_CTRL_BIT_GRID_DIM_Z) & 0x1) {
-      kernel->state()->setConstReg(const_reg_num, kernel->get_grid_dim().z);
-      const_reg_num++;
-  }
-
-  if ((kernel_ctrl >> KERNEL_CTRL_BIT_BLOCK_DIM_X) & 0x1) {
-      kernel->state()->setConstReg(const_reg_num, kernel->get_cta_dim().x);
-      const_reg_num++;
-  }
-
-  if ((kernel_ctrl >> KERNEL_CTRL_BIT_BLOCK_DIM_Y) & 0x1) {
-      kernel->state()->setConstReg(const_reg_num, kernel->get_cta_dim().y);
-      const_reg_num++;
-  }
-
-  if ((kernel_ctrl >> KERNEL_CTRL_BIT_BLOCK_DIM_Z) & 0x1) {
-      kernel->state()->setConstReg(const_reg_num, kernel->get_cta_dim().z);
-      const_reg_num++;
-  }
-  // FIXME add user_data register
-
   checkpoint *g_checkpoint;
   g_checkpoint = new checkpoint();
 /*
@@ -117,7 +75,7 @@ void IsaSim::launch(DispatchInfo *disp_info, unsigned kernel_uid, bool openCL) {
       kernel.name().c_str());
 */
   unsigned max_cta_tot = max_cta(
-      disp_info, kernel->threads_per_cta(),
+      &disp_info, kernel->threads_per_cta(),
       m_ctx->the_gpgpusim->g_the_gpu->getShaderCoreConfig()->warp_size,
       m_ctx->the_gpgpusim->g_the_gpu->getShaderCoreConfig()->n_thread_per_shader,
       m_ctx->the_gpgpusim->g_the_gpu->getShaderCoreConfig()
@@ -138,7 +96,6 @@ void IsaSim::launch(DispatchInfo *disp_info, unsigned kernel_uid, bool openCL) {
   // functions work block wise
   while (!kernel->no_more_ctas_to_run()) {
     unsigned temp = kernel->get_next_cta_id_single();
-    dim3 cta_id = kernel->get_next_cta_id();
 
     if (cp_op == 0 ||
         (cp_op == 1 && cta_launched < cp_cta_resume &&
@@ -148,13 +105,16 @@ void IsaSim::launch(DispatchInfo *disp_info, unsigned kernel_uid, bool openCL) {
       ThreadBlock cta(
         m_gpu, kernel, m_ctx,
         m_ctx->the_gpgpusim->g_the_gpu->getShaderCoreConfig()->warp_size,
-        kernel->threads_per_cta(),
-        cta_id,
-        const_reg_num);
+        kernel->threads_per_cta());
 
       cta.execute(cp_count, temp);
+
+// #if (CUDART_VERSION >= 5000)
+//      m_ctx->device_runtime->launch_all_device_kernels();
+// #endif
+    } else {
+      kernel->increment_cta_id();
     }
-    kernel->increment_cta_id();
     cta_launched++;
   }
 

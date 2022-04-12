@@ -1,25 +1,33 @@
-#define ReadReg item->ReadReg
-#define ReadSReg item->ReadSReg
-#define WriteSReg item->WriteSReg
-#define ReadVReg item->ReadVReg
-#define WriteVReg item->WriteVReg
-#define	ReadBitmaskSReg item->ReadBitmaskSReg
-#define	WriteBitmaskSReg item->WriteBitmaskSReg
+// FIXME
+#define ReadReg item->getSreg
 
-#define	WriteLDS item->WriteLDS
-#define	ReadLDS item->ReadLDS
+#define ReadSReg item->getSreg
+#define WriteSReg item->setSreg
+#define ReadVReg item->getVreg
+#define WriteVReg item->setVreg
+#define	ReadBitmaskSReg item->getBitmaskSreg
+#define	WriteBitmaskSReg item->setBitmaskSreg
 
-#define	WriteMemory item->WriteMemory
-#define	ReadMemory item->ReadMemory
+#define	WriteLDS item->setDmem
+#define	ReadLDS item->getDmem
+
+#define	WriteSMEM item->writeSMEM
+#define	ReadSMEM item->readSMEM
+
+#define	WriteDMEM item->writeDMEM
+#define	ReadDMEM item->readDMEM
+
+#define	WriteVMEM item->writeVMEM
+#define	ReadVMEM item->readVMEM
 
 #define	ReadBufferResource item->ReadBufferResource
-#define	ReadMemPtr item->ReadMemPtr
-#define	ReadVRegMemPtr item->ReadVRegMemPtr
+#define	ReadMemPtr item->getSregMemPtr
+#define	ReadVRegMemPtr item->getVregMemPtr
 
-#define	GetWarp item->GetWarp()
-#define	GetBlock item->GetBlock()
+// #define	GetWarp item->GetWarp()
+// #define	GetBlock item->GetBlock()
 
-inline void	ISAUnimplemented(ThreadItem*){
+inline void	ISAUnimplemented(class WarpState*){
 }
 
 #include "executor/DataTypes.h"
