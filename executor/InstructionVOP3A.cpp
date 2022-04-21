@@ -3,20 +3,28 @@
 #include <cmath>
 #include <limits>
 
-#define opcode bytes.VOP3A
+#define OPCODE bytes.VOP3A
+#define INST InstructionVOP3A
 
-void InstructionVOP3A::Decode(uint64_t _opcode) {
+void INST::Decode(uint64_t _opcode) {
     bytes.dword = _opcode;
-    info.op = opcode.op;
+    info.op = OPCODE.op;
     m_size = 8;
 }
 
-void InstructionVOP3A::print() {
+void INST::print() {
     printf("Instruction: %s(%x)\n", opcode_str[info.op].c_str(), info.op);
 }
+void INST::dumpExecBegin(WarpState *w) {
+}
+
+void INST::dumpExecEnd(WarpState *w) {
+}
+
+
 /* D.u = VCC[i] ? S1.u : S0.u (i = threadID in wave); VOP3: specify VCC as a
  * scalar GPR in S2. */
-void InstructionVOP3A::V_CNDMASK_B32_VOP3A(WarpState *item, uint32_t lane_id)
+void INST::V_CNDMASK_B32_VOP3A(WarpState *item, uint32_t lane_id)
 {
 	Register s0;
 	Register s1;
@@ -24,113 +32,113 @@ void InstructionVOP3A::V_CNDMASK_B32_VOP3A(WarpState *item, uint32_t lane_id)
 
 	int vcci;
 
-	assert(!opcode.clamp);
-	assert(!opcode.omod);
-	assert(!opcode.abs);
+	assert(!OPCODE.clamp);
+	assert(!OPCODE.omod);
+	assert(!OPCODE.abs);
 
 	// Load operands from registers.
-	s0.as_uint = ReadReg(opcode.src0);
-	s1.as_uint = ReadReg(opcode.src1);
-	vcci = ReadBitmaskSReg(opcode.src2, lane_id);
+	s0.as_uint = ReadReg(OPCODE.src0);
+	s1.as_uint = ReadReg(OPCODE.src1);
+	vcci = ReadBitmaskSReg(OPCODE.src2, lane_id);
 
 	// Perform "floating-point negation"
-	if (opcode.neg & 1)
+	if (OPCODE.neg & 1)
 		s0.as_float = -s0.as_float;
-	if (opcode.neg & 2)
+	if (OPCODE.neg & 2)
 		s1.as_float = -s1.as_float;
-	assert(!(opcode.neg & 4));
+	assert(!(OPCODE.neg & 4));
 
 	// Calculate the result.
 	result.as_uint = (vcci) ? s1.as_uint : s0.as_uint;
 
 	// Write the results.
-	WriteVReg(opcode.vdst, result.as_uint, lane_id);
+	WriteVReg(OPCODE.vdst, result.as_uint, lane_id);
 
 }
 
 // D.f = S0.f + S1.f.
-void InstructionVOP3A::V_ADD_F32_VOP3A(WarpState *item, uint32_t lane_id)
+void INST::V_ADD_F32_VOP3A(WarpState *item, uint32_t lane_id)
 {
 	Register s0;
 	Register s1;
 	Register sum;
 
-	assert(!opcode.clamp);
-	assert(!opcode.omod);
+	assert(!OPCODE.clamp);
+	assert(!OPCODE.omod);
 
 	// Load operands from registers or as a literal constant.
-	s0.as_uint = ReadReg(opcode.src0);
-	s1.as_uint = ReadReg(opcode.src1);
+	s0.as_uint = ReadReg(OPCODE.src0);
+	s1.as_uint = ReadReg(OPCODE.src1);
 
 	// Apply absolute value modifiers.
-	if (opcode.abs & 1)
+	if (OPCODE.abs & 1)
 		s0.as_float = fabsf(s0.as_float);
-	if (opcode.abs & 2)
+	if (OPCODE.abs & 2)
 		s1.as_float = fabsf(s1.as_float);
-	assert(!(opcode.abs & 4));
+	assert(!(OPCODE.abs & 4));
 
 	// Apply negation modifiers.
-	if (opcode.neg & 1)
+	if (OPCODE.neg & 1)
 		s0.as_float = -s0.as_float;
-	if (opcode.neg & 2)
+	if (OPCODE.neg & 2)
 		s1.as_float = -s1.as_float;
-	assert(!(opcode.neg & 4));
+	assert(!(OPCODE.neg & 4));
 
 	// Calculate the sum.
 	sum.as_float = s0.as_float + s1.as_float;
 
 	// Write the results.
-	WriteVReg(opcode.vdst, sum.as_uint, lane_id);
+	WriteVReg(OPCODE.vdst, sum.as_uint, lane_id);
 
 }
 
 // D.f = S1.f - S0.f
-void InstructionVOP3A::V_SUBREV_F32_VOP3A(WarpState *item, uint32_t lane_id)
+void INST::V_SUBREV_F32_VOP3A(WarpState *item, uint32_t lane_id)
 {
 	Register s0;
 	Register s1;
 	Register diff;
 
-	assert(!opcode.clamp);
-	assert(!opcode.omod);
+	assert(!OPCODE.clamp);
+	assert(!OPCODE.omod);
 
 	// Load operands from registers or as a literal constant.
-	s0.as_uint = ReadReg(opcode.src0);
-	s1.as_uint = ReadReg(opcode.src1);
+	s0.as_uint = ReadReg(OPCODE.src0);
+	s1.as_uint = ReadReg(OPCODE.src1);
 
 	// Apply absolute value modifiers.
-	if (opcode.abs & 1)
+	if (OPCODE.abs & 1)
 		s0.as_float = fabsf(s0.as_float);
-	if (opcode.abs & 2)
+	if (OPCODE.abs & 2)
 		s1.as_float = fabsf(s1.as_float);
-	assert(!(opcode.abs & 4));
+	assert(!(OPCODE.abs & 4));
 
 	// Apply negation modifiers.
-	if (opcode.neg & 1)
+	if (OPCODE.neg & 1)
 		s0.as_float = -s0.as_float;
-	if (opcode.neg & 2)
+	if (OPCODE.neg & 2)
 		s1.as_float = -s1.as_float;
-	assert(!(opcode.neg & 4));
+	assert(!(OPCODE.neg & 4));
 
 	// Calculate the diff.
 	diff.as_float = s1.as_float - s0.as_float;
 
 	// Write the results.
-	WriteVReg(opcode.vdst, diff.as_uint, lane_id);
+	WriteVReg(OPCODE.vdst, diff.as_uint, lane_id);
 
 }
 
 // D.f = S0.f * S1.f (DX9 rules, 0.0*x = 0.0).
 /*
-void InstructionVOP3A::V_MUL_LEGACY_F32_VOP3A(WarpState *item, uint32_t lane_id)
+void INST::V_MUL_LEGACY_F32_VOP3A(WarpState *item, uint32_t lane_id)
 {
 	Register s0;
 	Register s1;
 	Register product;
 
 	// Load operands from registers or as a literal constant.
-	s0.as_uint = ReadReg(opcode.src0);
-	s1.as_uint = ReadReg(opcode.src1);
+	s0.as_uint = ReadReg(OPCODE.src0);
+	s1.as_uint = ReadReg(OPCODE.src1);
 
 	// Calculate the product.
 	if (s0.as_float == 0.0f || s1.as_float == 0.0f)
@@ -143,61 +151,61 @@ void InstructionVOP3A::V_MUL_LEGACY_F32_VOP3A(WarpState *item, uint32_t lane_id)
 	}
 
 	// Write the results.
-	WriteVReg(opcode.vdst, product.as_uint);
+	WriteVReg(OPCODE.vdst, product.as_uint);
 
 }*/
 
 // D.f = S0.f * S1.f.
-void InstructionVOP3A::V_MUL_F32_VOP3A(WarpState *item, uint32_t lane_id)
+void INST::V_MUL_F32_VOP3A(WarpState *item, uint32_t lane_id)
 {
 	Register s0;
 	Register s1;
 	Register result;
 
-	assert(!opcode.clamp);
-	assert(!opcode.omod);
+	assert(!OPCODE.clamp);
+	assert(!OPCODE.omod);
 
 	// Load operands from registers or as a literal constant.
-	s0.as_uint = ReadReg(opcode.src0);
-	s1.as_uint = ReadReg(opcode.src1);
+	s0.as_uint = ReadReg(OPCODE.src0);
+	s1.as_uint = ReadReg(OPCODE.src1);
 
 	// Apply absolute value modifiers.
-	if (opcode.abs & 1)
+	if (OPCODE.abs & 1)
 		s0.as_float = fabsf(s0.as_float);
-	if (opcode.abs & 2)
+	if (OPCODE.abs & 2)
 		s1.as_float = fabsf(s1.as_float);
-	assert(!(opcode.abs & 4));
+	assert(!(OPCODE.abs & 4));
 
 	// Apply negation modifiers.
-	if (opcode.neg & 1)
+	if (OPCODE.neg & 1)
 		s0.as_float = -s0.as_float;
-	if (opcode.neg & 2)
+	if (OPCODE.neg & 2)
 		s1.as_float = -s1.as_float;
-	assert(!(opcode.neg & 4));
+	assert(!(OPCODE.neg & 4));
 
 	// Calculate the result.
 	result.as_float = s0.as_float * s1.as_float;
 
 	// Write the results.
-	WriteVReg(opcode.vdst, result.as_uint, lane_id);
+	WriteVReg(OPCODE.vdst, result.as_uint, lane_id);
 
 }
 
 // D.f = S0. * S1..
-void InstructionVOP3A::V_MUL_I32_I24_VOP3A(WarpState *item, uint32_t lane_id)
+void INST::V_MUL_I32_I24_VOP3A(WarpState *item, uint32_t lane_id)
 {
 	Register s0;
 	Register s1;
 	Register product;
 
-	assert(!opcode.clamp);
-	assert(!opcode.omod);
-	assert(!opcode.neg);
-	assert(!opcode.abs);
+	assert(!OPCODE.clamp);
+	assert(!OPCODE.omod);
+	assert(!OPCODE.neg);
+	assert(!OPCODE.abs);
 
 	// Load operands from registers or as a literal constant.
-	s0.as_uint = ReadReg(opcode.src0);
-	s1.as_uint = ReadReg(opcode.src1);
+	s0.as_uint = ReadReg(OPCODE.src0);
+	s1.as_uint = ReadReg(OPCODE.src1);
 
 	// Truncate operands to 24-bit signed integers
 	s0.as_uint = SignExtend(s0.as_uint, 24);
@@ -207,104 +215,104 @@ void InstructionVOP3A::V_MUL_I32_I24_VOP3A(WarpState *item, uint32_t lane_id)
 	product.as_int = s0.as_int * s1.as_int;
 
 	// Write the results.
-	WriteVReg(opcode.vdst, product.as_uint, lane_id);
+	WriteVReg(OPCODE.vdst, product.as_uint, lane_id);
 
 }
 
 // D.f = max(S0.f, S1.f).
-void InstructionVOP3A::V_MAX_F32_VOP3A(WarpState *item, uint32_t lane_id)
+void INST::V_MAX_F32_VOP3A(WarpState *item, uint32_t lane_id)
 {
 	Register s0;
 	Register s1;
 	Register result;
 
-	assert(!opcode.clamp);
-	assert(!opcode.omod);
+	assert(!OPCODE.clamp);
+	assert(!OPCODE.omod);
 
 	// Load operands from registers
-	s0.as_uint = ReadReg(opcode.src0);
-	s1.as_uint = ReadReg(opcode.src1);
+	s0.as_uint = ReadReg(OPCODE.src0);
+	s1.as_uint = ReadReg(OPCODE.src1);
 
 	// Apply absolute value modifiers.
-	if (opcode.abs & 1)
+	if (OPCODE.abs & 1)
 		s0.as_float = fabsf(s0.as_float);
-	if (opcode.abs & 2)
+	if (OPCODE.abs & 2)
 		s1.as_float = fabsf(s1.as_float);
-	assert(!(opcode.abs & 4));
+	assert(!(OPCODE.abs & 4));
 
 	// Apply negation modifiers.
-	if (opcode.neg & 1)
+	if (OPCODE.neg & 1)
 		s0.as_float = -s0.as_float;
-	if (opcode.neg & 2)
+	if (OPCODE.neg & 2)
 		s1.as_float = -s1.as_float;
-	assert(!(opcode.neg & 4));
+	assert(!(OPCODE.neg & 4));
 
 	// Calculate the result.
 	result.as_float = (s0.as_float > s1.as_float) ?
 		s0.as_float : s1.as_float;
 
 	// Write the results.
-	WriteVReg(opcode.vdst, result.as_uint, lane_id);
+	WriteVReg(OPCODE.vdst, result.as_uint, lane_id);
 
 }
 
 // D.f = S0.f * S1.f + S2.f.
-void InstructionVOP3A::V_MAD_F32(WarpState *item, uint32_t lane_id)
+void INST::V_MAD_F32(WarpState *item, uint32_t lane_id)
 {
 	Register s0;
 	Register s1;
 	Register s2;
 	Register result;
 
-	assert(!opcode.clamp);
-	assert(!opcode.omod);
+	assert(!OPCODE.clamp);
+	assert(!OPCODE.omod);
 
 	// Load operands from registers.
-	s0.as_uint = ReadReg(opcode.src0);
-	s1.as_uint = ReadReg(opcode.src1);
-	s2.as_uint = ReadReg(opcode.src2);
+	s0.as_uint = ReadReg(OPCODE.src0);
+	s1.as_uint = ReadReg(OPCODE.src1);
+	s2.as_uint = ReadReg(OPCODE.src2);
 
 	// Apply absolute value modifiers.
-	if (opcode.abs & 1)
+	if (OPCODE.abs & 1)
 		s0.as_float = fabsf(s0.as_float);
-	if (opcode.abs & 2)
+	if (OPCODE.abs & 2)
 		s1.as_float = fabsf(s1.as_float);
-	if (opcode.abs & 4)
+	if (OPCODE.abs & 4)
 		s2.as_float = fabsf(s2.as_float);
 
 	// Apply negation modifiers.
-	if (opcode.neg & 1)
+	if (OPCODE.neg & 1)
 		s0.as_float = -s0.as_float;
-	if (opcode.neg & 2)
+	if (OPCODE.neg & 2)
 		s1.as_float = -s1.as_float;
-	if (opcode.neg & 4)
+	if (OPCODE.neg & 4)
 		s2.as_float = -s2.as_float;
 
 	// Calculate the result.
 	result.as_float = s0.as_float * s1.as_float + s2.as_float;
 
 	// Write the results.
-	WriteVReg(opcode.vdst, result.as_uint, lane_id);
+	WriteVReg(OPCODE.vdst, result.as_uint, lane_id);
 
 }
 
 // D.u = S0.u[23:0] * S1.u[23:0] + S2.u[31:0].
-void InstructionVOP3A::V_MAD_U32_U24(WarpState *item, uint32_t lane_id)
+void INST::V_MAD_U32_U24(WarpState *item, uint32_t lane_id)
 {
 	Register s0;
 	Register s1;
 	Register s2;
 	Register result;
 
-	assert(!opcode.clamp);
-	assert(!opcode.omod);
-	assert(!opcode.neg);
-	assert(!opcode.abs);
+	assert(!OPCODE.clamp);
+	assert(!OPCODE.omod);
+	assert(!OPCODE.neg);
+	assert(!OPCODE.abs);
 
 	// Load operands from registers.
-	s0.as_uint = ReadReg(opcode.src0);
-	s1.as_uint = ReadReg(opcode.src1);
-	s2.as_uint = ReadReg(opcode.src2);
+	s0.as_uint = ReadReg(OPCODE.src0);
+	s1.as_uint = ReadReg(OPCODE.src1);
+	s2.as_uint = ReadReg(OPCODE.src2);
 
 	s0.as_uint = s0.as_uint & 0x00FFFFFF;
 	s1.as_uint = s1.as_uint & 0x00FFFFFF;
@@ -313,28 +321,28 @@ void InstructionVOP3A::V_MAD_U32_U24(WarpState *item, uint32_t lane_id)
 	result.as_uint = s0.as_uint * s1.as_uint + s2.as_uint;
 
 	// Write the results.
-	WriteVReg(opcode.vdst, result.as_uint, lane_id);
+	WriteVReg(OPCODE.vdst, result.as_uint, lane_id);
 
 }
 
 /* D.u = (S0.u >> S1.u[4:0]) & ((1 << S2.u[4:0]) - 1); bitfield extract,
  * S0=data, S1=field_offset, S2=field_width. */
-void InstructionVOP3A::V_BFE_U32(WarpState *item, uint32_t lane_id)
+void INST::V_BFE_U32(WarpState *item, uint32_t lane_id)
 {
 	Register s0;
 	Register s1;
 	Register s2;
 	Register result;
 
-	assert(!opcode.clamp);
-	assert(!opcode.omod);
-	assert(!opcode.neg);
-	assert(!opcode.abs);
+	assert(!OPCODE.clamp);
+	assert(!OPCODE.omod);
+	assert(!OPCODE.neg);
+	assert(!OPCODE.abs);
 
 	// Load operands from registers.
-	s0.as_uint = ReadReg(opcode.src0);
-	s1.as_uint = ReadReg(opcode.src1);
-	s2.as_uint = ReadReg(opcode.src2);
+	s0.as_uint = ReadReg(OPCODE.src0);
+	s1.as_uint = ReadReg(OPCODE.src1);
+	s2.as_uint = ReadReg(OPCODE.src2);
 
 	s1.as_uint = s1.as_uint & 0x1F;
 	s2.as_uint = s2.as_uint & 0x1F;
@@ -343,28 +351,28 @@ void InstructionVOP3A::V_BFE_U32(WarpState *item, uint32_t lane_id)
 	result.as_uint = (s0.as_uint >> s1.as_uint) & ((1 << s2.as_uint) - 1);
 
 	// Write the results.
-	WriteVReg(opcode.vdst, result.as_uint, lane_id);
+	WriteVReg(OPCODE.vdst, result.as_uint, lane_id);
 
 }
 
 /* D.i = (S0.i >> S1.u[4:0]) & ((1 << S2.u[4:0]) - 1); bitfield extract,
  * S0=data, S1=field_offset, S2=field_width. */
-void InstructionVOP3A::V_BFE_I32(WarpState *item, uint32_t lane_id)
+void INST::V_BFE_I32(WarpState *item, uint32_t lane_id)
 {
 	Register s0;
 	Register s1;
 	Register s2;
 	Register result;
 
-	assert(!opcode.clamp);
-	assert(!opcode.omod);
-	assert(!opcode.neg);
-	assert(!opcode.abs);
+	assert(!OPCODE.clamp);
+	assert(!OPCODE.omod);
+	assert(!OPCODE.neg);
+	assert(!OPCODE.abs);
 
 	// Load operands from registers.
-	s0.as_uint = ReadReg(opcode.src0);
-	s1.as_uint = ReadReg(opcode.src1);
-	s2.as_uint = ReadReg(opcode.src2);
+	s0.as_uint = ReadReg(OPCODE.src0);
+	s1.as_uint = ReadReg(OPCODE.src1);
+	s2.as_uint = ReadReg(OPCODE.src2);
 
 	s1.as_uint = s1.as_uint & 0x1F;
 	s2.as_uint = s2.as_uint & 0x1F;
@@ -385,85 +393,85 @@ void InstructionVOP3A::V_BFE_I32(WarpState *item, uint32_t lane_id)
 	}
 
 	// Write the results.
-	WriteVReg(opcode.vdst, result.as_uint, lane_id);
+	WriteVReg(OPCODE.vdst, result.as_uint, lane_id);
 
 }
 
 // D.u = (S0.u & S1.u) | (~S0.u & S2.u).
-void InstructionVOP3A::V_BFI_B32(WarpState *item, uint32_t lane_id)
+void INST::V_BFI_B32(WarpState *item, uint32_t lane_id)
 {
 	Register s0;
 	Register s1;
 	Register s2;
 	Register result;
 
-	assert(!opcode.clamp);
-	assert(!opcode.omod);
-	assert(!opcode.neg);
-	assert(!opcode.abs);
+	assert(!OPCODE.clamp);
+	assert(!OPCODE.omod);
+	assert(!OPCODE.neg);
+	assert(!OPCODE.abs);
 
 	// Load operands from registers.
-	s0.as_uint = ReadReg(opcode.src0);
-	s1.as_uint = ReadReg(opcode.src1);
-	s2.as_uint = ReadReg(opcode.src2);
+	s0.as_uint = ReadReg(OPCODE.src0);
+	s1.as_uint = ReadReg(OPCODE.src1);
+	s2.as_uint = ReadReg(OPCODE.src2);
 
 	// Calculate the result.
 	result.as_uint = (s0.as_uint & s1.as_uint) |
 		(~s0.as_uint & s2.as_uint);
 
 	// Write the results.
-	WriteVReg(opcode.vdst, result.as_uint, lane_id);
+	WriteVReg(OPCODE.vdst, result.as_uint, lane_id);
 
 }
 
 // D.f = S0.f * S1.f + S2.f
-void InstructionVOP3A::V_FMA_F32(WarpState *item, uint32_t lane_id)
+void INST::V_FMA_F32(WarpState *item, uint32_t lane_id)
 {
 	Register s0;
 	Register s1;
 	Register s2;
 	Register result;
 
-	assert(!opcode.clamp);
-	assert(!opcode.omod);
+	assert(!OPCODE.clamp);
+	assert(!OPCODE.omod);
 
 	// Load operands from registers.
-	s0.as_uint = ReadReg(opcode.src0);
-	s1.as_uint = ReadReg(opcode.src1);
-	s2.as_uint = ReadReg(opcode.src2);
+	s0.as_uint = ReadReg(OPCODE.src0);
+	s1.as_uint = ReadReg(OPCODE.src1);
+	s2.as_uint = ReadReg(OPCODE.src2);
 
 	// Apply absolute value modifiers.
-	if (opcode.abs & 1)
+	if (OPCODE.abs & 1)
 		s0.as_float = fabsf(s0.as_float);
-	if (opcode.abs & 2)
+	if (OPCODE.abs & 2)
 		s1.as_float = fabsf(s1.as_float);
-	if (opcode.abs & 4)
+	if (OPCODE.abs & 4)
 		s2.as_float = fabsf(s2.as_float);
 
 	// Apply negation modifiers.
-	if (opcode.neg & 1)
+	if (OPCODE.neg & 1)
 		s0.as_float = -s0.as_float;
-	if (opcode.neg & 2)
+	if (OPCODE.neg & 2)
 		s1.as_float = -s1.as_float;
-	if (opcode.neg & 4)
+	if (OPCODE.neg & 4)
 		s2.as_float = -s2.as_float;
 
 	// FMA
 	result.as_float = (s0.as_float * s1.as_float) + s2.as_float;
 
 	// Write the results.
-	WriteVReg(opcode.vdst, result.as_uint, lane_id);
+	WriteVReg(OPCODE.vdst, result.as_uint, lane_id);
 
 }
 
 // D.d = S0.d * S1.d + S2.d
-void InstructionVOP3A::V_FMA_F64(WarpState *item, uint32_t lane_id)
+void INST::V_FMA_F64(WarpState *item, uint32_t lane_id)
 {
 	ISAUnimplemented(item);
 }
 
 // D.u = ({S0,S1} >> S2.u[4:0]) & 0xFFFFFFFF.
-void InstructionVOP3A::V_ALIGNBIT_B32(WarpState *item, uint32_t lane_id)
+void INST::V_ALIGNBIT_B32(WarpState *item, uint32_t lane_id)
 {
 	Register src2;
 	Register result;
@@ -475,33 +483,33 @@ void InstructionVOP3A::V_ALIGNBIT_B32(WarpState *item, uint32_t lane_id)
 
 	} src;
 
-	assert(!opcode.clamp);
-	assert(!opcode.omod);
-	assert(!opcode.neg);
-	assert(!opcode.abs);
+	assert(!OPCODE.clamp);
+	assert(!OPCODE.omod);
+	assert(!OPCODE.neg);
+	assert(!OPCODE.abs);
 
 	// Load operands from registers.
-	src.as_reg[0] = ReadReg(opcode.src1);
-	src.as_reg[1] = ReadReg(opcode.src0);
-	src2.as_uint = ReadReg(opcode.src2);
+	src.as_reg[0] = ReadReg(OPCODE.src1);
+	src.as_reg[1] = ReadReg(OPCODE.src0);
+	src2.as_uint = ReadReg(OPCODE.src2);
 	src2.as_uint = src2.as_uint & 0x1F;
 
 	// ({S0,S1} >> S2.u[4:0]) & 0xFFFFFFFF.
 	result.as_uint = (src.as_b64 >> src2.as_uint) & 0xFFFFFFFF;
 
 	// Write the results.
-	WriteVReg(opcode.vdst, result.as_uint, lane_id);
+	WriteVReg(OPCODE.vdst, result.as_uint, lane_id);
 
 }
 
 /*
- *D.d = Special case divide fixup and flags(s0.d = Quotient, s1.d = Denominator, s2.d = Numerator).  void InstructionVOP3A::V_DIV_FIXUP_F64(WarpState *item, uint32_t lane_id)
+ *D.d = Special case divide fixup and flags(s0.d = Quotient, s1.d = Denominator, s2.d = Numerator).  void INST::V_DIV_FIXUP_F64(WarpState *item, uint32_t lane_id)
 {
 	ISAUnimplemented(item);
 }
  */
 
-void InstructionVOP3A::V_LSHL_B64(WarpState *item, uint32_t lane_id)
+void INST::V_LSHL_B64(WarpState *item, uint32_t lane_id)
 {
 	// Input operands
 	union
@@ -516,14 +524,14 @@ void InstructionVOP3A::V_LSHL_B64(WarpState *item, uint32_t lane_id)
 	Register result_lo;
 	Register result_hi;
 
-	assert(!opcode.clamp);
-	assert(!opcode.omod);
+	assert(!OPCODE.clamp);
+	assert(!OPCODE.omod);
 
 	// Load operands from registers.
-	s0.as_reg[0] = ReadReg(opcode.src0);
-	s0.as_reg[1] = ReadReg(opcode.src0 + 1);
-	s1.as_reg[0] = ReadReg(opcode.src1);
-	s1.as_reg[1] = ReadReg(opcode.src1 + 1);
+	s0.as_reg[0] = ReadReg(OPCODE.src0);
+	s0.as_reg[1] = ReadReg(OPCODE.src0 + 1);
+	s1.as_reg[0] = ReadReg(OPCODE.src1);
+	s1.as_reg[1] = ReadReg(OPCODE.src1 + 1);
 
 	// LSHFT_B64
 	// Mask s1 to return s1[4:0]
@@ -534,77 +542,77 @@ void InstructionVOP3A::V_LSHL_B64(WarpState *item, uint32_t lane_id)
 	// Cast uint32 to unsigned int
 	result_lo.as_uint = (unsigned int)dst.as_reg[0];
 	result_hi.as_uint = (unsigned int)dst.as_reg[1];
-	WriteVReg(opcode.vdst, result_lo.as_uint, lane_id);
-	WriteVReg(opcode.vdst + 1, result_hi.as_uint, lane_id);
+	WriteVReg(OPCODE.vdst, result_lo.as_uint, lane_id);
+	WriteVReg(OPCODE.vdst + 1, result_hi.as_uint, lane_id);
 }
 
 
 // D.d = min(S0.d, S1.d).
-void InstructionVOP3A::V_MIN_F64(WarpState *item, uint32_t lane_id)
+void INST::V_MIN_F64(WarpState *item, uint32_t lane_id)
 {
 	ISAUnimplemented(item);
 }
 
 // D.d = max(S0.d, S1.d).
-void InstructionVOP3A::V_MAX_F64(WarpState *item, uint32_t lane_id)
+void INST::V_MAX_F64(WarpState *item, uint32_t lane_id)
 {
 	ISAUnimplemented(item);
 }
 
 // D.u = S0.u * S1.u.
-void InstructionVOP3A::V_MUL_LO_U32(WarpState *item, uint32_t lane_id)
+void INST::V_MUL_LO_U32(WarpState *item, uint32_t lane_id)
 {
 	Register s0;
 	Register s1;
 	Register result;
 
-	assert(!opcode.clamp);
-	assert(!opcode.omod);
-	assert(!opcode.neg);
-	assert(!opcode.abs);
+	assert(!OPCODE.clamp);
+	assert(!OPCODE.omod);
+	assert(!OPCODE.neg);
+	assert(!OPCODE.abs);
 
 	// Load operands from registers.
-	s0.as_uint = ReadReg(opcode.src0);
-	s1.as_uint = ReadReg(opcode.src1);
+	s0.as_uint = ReadReg(OPCODE.src0);
+	s1.as_uint = ReadReg(OPCODE.src1);
 
 	// Calculate the product.
 	result.as_uint = s0.as_uint * s1.as_uint;
 
 	// Write the results.
-	WriteVReg(opcode.vdst, result.as_uint, lane_id);
+	WriteVReg(OPCODE.vdst, result.as_uint, lane_id);
 
 }
 
 /*
  *D.d = Special case divide FMA with scale and flags(s0.d = Quotient, s1.d = Denominator,
  *s2.d = Numerator).
-void InstructionVOP3A::V_DIV_FMAS_F64(WarpState *item, uint32_t lane_id)
+void INST::V_DIV_FMAS_F64(WarpState *item, uint32_t lane_id)
 {
 	ISAUnimplemented(item);
 }
 
 // D.d = Look Up 2/PI (S0.d) with segment select S1.u[4:0].
-void InstructionVOP3A::V_TRIG_PREOP_F64(WarpState *item, uint32_t lane_id)
+void INST::V_TRIG_PREOP_F64(WarpState *item, uint32_t lane_id)
 {
 	ISAUnimplemented(item);
 }
  */
 
 // D.u = (S0.u * S1.u)>>32
-void InstructionVOP3A::V_MUL_HI_U32(WarpState *item, uint32_t lane_id)
+void INST::V_MUL_HI_U32(WarpState *item, uint32_t lane_id)
 {
 	Register s0;
 	Register s1;
 	Register result;
 
-	assert(!opcode.clamp);
-	assert(!opcode.omod);
-	assert(!opcode.neg);
-	assert(!opcode.abs);
+	assert(!OPCODE.clamp);
+	assert(!OPCODE.omod);
+	assert(!OPCODE.neg);
+	assert(!OPCODE.abs);
 
 	// Load operands from registers.
-	s0.as_uint = ReadReg(opcode.src0);
-	s1.as_uint = ReadReg(opcode.src1);
+	s0.as_uint = ReadReg(OPCODE.src0);
+	s1.as_uint = ReadReg(OPCODE.src1);
 
 	// Calculate the product and shift right.
 	result.as_uint = (unsigned)
@@ -612,513 +620,513 @@ void InstructionVOP3A::V_MUL_HI_U32(WarpState *item, uint32_t lane_id)
 		(unsigned long long)s1.as_uint) >> 32);
 
 	// Write the results.
-	WriteVReg(opcode.vdst, result.as_uint, lane_id);
+	WriteVReg(OPCODE.vdst, result.as_uint, lane_id);
 
 }
 
 // D.i = S0.i * S1.i.
-void InstructionVOP3A::V_MUL_LO_I32(WarpState *item, uint32_t lane_id)
+void INST::V_MUL_LO_I32(WarpState *item, uint32_t lane_id)
 {
 	Register s0;
 	Register s1;
 	Register result;
 
-	assert(!opcode.clamp);
-	assert(!opcode.omod);
-	assert(!opcode.neg);
-	assert(!opcode.abs);
+	assert(!OPCODE.clamp);
+	assert(!OPCODE.omod);
+	assert(!OPCODE.neg);
+	assert(!OPCODE.abs);
 
 	// Load operands from registers.
-	s0.as_uint = ReadReg(opcode.src0);
-	s1.as_uint = ReadReg(opcode.src1);
+	s0.as_uint = ReadReg(OPCODE.src0);
+	s1.as_uint = ReadReg(OPCODE.src1);
 
 	// Calculate the product.
 	result.as_int = s0.as_int * s1.as_int;
 
 
 	// Write the results.
-	WriteVReg(opcode.vdst, result.as_uint, lane_id);
+	WriteVReg(OPCODE.vdst, result.as_uint, lane_id);
 
 }
 
 // D.f = S0.f - floor(S0.f).
-void InstructionVOP3A::V_FRACT_F32_VOP3A(WarpState *item, uint32_t lane_id)
+void INST::V_FRACT_F32_VOP3A(WarpState *item, uint32_t lane_id)
 {
 	Register s0;
 	Register result;
 
-	assert(!opcode.clamp);
-	assert(!opcode.omod);
+	assert(!OPCODE.clamp);
+	assert(!OPCODE.omod);
 
 	// Load operands from registers.
-	s0.as_uint = ReadReg(opcode.src0);
+	s0.as_uint = ReadReg(OPCODE.src0);
 
 	// Apply negation modifiers.
-	if (opcode.abs & 1)
+	if (OPCODE.abs & 1)
 		s0.as_float = fabsf(s0.as_float);
-	assert (!(opcode.abs & 2));
-	assert (!(opcode.abs & 4));
+	assert (!(OPCODE.abs & 2));
+	assert (!(OPCODE.abs & 4));
 
-	if (opcode.neg & 1)
+	if (OPCODE.neg & 1)
 		s0.as_float = -s0.as_float;
-	assert (!(opcode.neg & 2));
-	assert (!(opcode.neg & 4));
+	assert (!(OPCODE.neg & 2));
+	assert (!(OPCODE.neg & 4));
 
 	// Calculate the product.
 	result.as_float = s0.as_float - floorf(s0.as_float);
 
 	// Write the results.
-	WriteVReg(opcode.vdst, result.as_uint, lane_id);
+	WriteVReg(OPCODE.vdst, result.as_uint, lane_id);
 
 }
 
 // D.u = (S0.f < S1.f).
-void InstructionVOP3A::V_CMP_LT_F32_VOP3A(WarpState *item, uint32_t lane_id)
+void INST::V_CMP_LT_F32_VOP3A(WarpState *item, uint32_t lane_id)
 {
 	Register s0;
 	Register s1;
 	Register result;
 
-	assert(!opcode.clamp);
-	assert(!opcode.omod);
+	assert(!OPCODE.clamp);
+	assert(!OPCODE.omod);
 
 	// Load operands from registers.
-	s0.as_uint = ReadReg(opcode.src0);
-	s1.as_uint = ReadReg(opcode.src1);
+	s0.as_uint = ReadReg(OPCODE.src0);
+	s1.as_uint = ReadReg(OPCODE.src1);
 
 	// Apply absolute value modifiers.
-	if (opcode.abs & 1)
+	if (OPCODE.abs & 1)
 		s0.as_float = fabsf(s0.as_float);
-	if (opcode.abs & 2)
+	if (OPCODE.abs & 2)
 		s1.as_float = fabsf(s1.as_float);
-	assert(!(opcode.abs & 4));
+	assert(!(OPCODE.abs & 4));
 
 	// Apply negation modifiers.
-	if (opcode.neg & 1)
+	if (OPCODE.neg & 1)
 		s0.as_float = -s0.as_float;
-	if (opcode.neg & 2)
+	if (OPCODE.neg & 2)
 		s1.as_float = -s1.as_float;
-	assert(!(opcode.neg & 4));
+	assert(!(OPCODE.neg & 4));
 
 	// Compare the operands.
 	result.as_uint = (s0.as_float < s1.as_float);
 
 	// Write the results.
-	WriteBitmaskSReg(opcode.vdst, result.as_uint, lane_id);
+	WriteBitmaskSReg(OPCODE.vdst, result.as_uint, lane_id);
 
 }
 
 // D.u = (S0.f == S1.f).
-void InstructionVOP3A::V_CMP_EQ_F32_VOP3A(WarpState *item, uint32_t lane_id)
+void INST::V_CMP_EQ_F32_VOP3A(WarpState *item, uint32_t lane_id)
 {
 	Register s0;
 	Register s1;
 	Register result;
 
-	assert(!opcode.clamp);
-	assert(!opcode.omod);
+	assert(!OPCODE.clamp);
+	assert(!OPCODE.omod);
 
 	// Load operands from registers.
-	s0.as_uint = ReadReg(opcode.src0);
-	s1.as_uint = ReadReg(opcode.src1);
+	s0.as_uint = ReadReg(OPCODE.src0);
+	s1.as_uint = ReadReg(OPCODE.src1);
 
 	// Apply absolute value modifiers.
-	if (opcode.abs & 1)
+	if (OPCODE.abs & 1)
 		s0.as_float = fabsf(s0.as_float);
-	if (opcode.abs & 2)
+	if (OPCODE.abs & 2)
 		s1.as_float = fabsf(s1.as_float);
-	assert(!(opcode.abs & 4));
+	assert(!(OPCODE.abs & 4));
 
 	// Apply negation modifiers.
-	if (opcode.neg & 1)
+	if (OPCODE.neg & 1)
 		s0.as_float = -s0.as_float;
-	if (opcode.neg & 2)
+	if (OPCODE.neg & 2)
 		s1.as_float = -s1.as_float;
-	assert(!(opcode.neg & 4));
+	assert(!(OPCODE.neg & 4));
 
 	// Compare the operands.
 	result.as_uint = (s0.as_float == s1.as_float);
 
 	// Write the results.
-	WriteBitmaskSReg(opcode.vdst, result.as_uint, lane_id);
+	WriteBitmaskSReg(OPCODE.vdst, result.as_uint, lane_id);
 
 }
 
 // vcc = (S0.f <= S1.f).
-void InstructionVOP3A::V_CMP_LE_F32_VOP3A(WarpState *item, uint32_t lane_id)
+void INST::V_CMP_LE_F32_VOP3A(WarpState *item, uint32_t lane_id)
 {
 	ISAUnimplemented(item);
 }
 
 // D.u = (S0.f > S1.f).
-void InstructionVOP3A::V_CMP_GT_F32_VOP3A(WarpState *item, uint32_t lane_id)
+void INST::V_CMP_GT_F32_VOP3A(WarpState *item, uint32_t lane_id)
 {
 	Register s0;
 	Register s1;
 	Register result;
 
-	assert(!opcode.clamp);
-	assert(!opcode.omod);
+	assert(!OPCODE.clamp);
+	assert(!OPCODE.omod);
 
 	// Load operands from registers.
-	s0.as_uint = ReadReg(opcode.src0);
-	s1.as_uint = ReadReg(opcode.src1);
+	s0.as_uint = ReadReg(OPCODE.src0);
+	s1.as_uint = ReadReg(OPCODE.src1);
 
 	// Apply absolute value modifiers.
-	if (opcode.abs & 1)
+	if (OPCODE.abs & 1)
 		s0.as_float = fabsf(s0.as_float);
-	if (opcode.abs & 2)
+	if (OPCODE.abs & 2)
 		s1.as_float = fabsf(s1.as_float);
-	assert(!(opcode.abs & 4));
+	assert(!(OPCODE.abs & 4));
 
 	// Apply negation modifiers.
-	if (opcode.neg & 1)
+	if (OPCODE.neg & 1)
 		s0.as_float = -s0.as_float;
-	if (opcode.neg & 2)
+	if (OPCODE.neg & 2)
 		s1.as_float = -s1.as_float;
-	assert(!(opcode.neg & 4));
+	assert(!(OPCODE.neg & 4));
 
 	// Compare the operands.
 	result.as_uint = (s0.as_float > s1.as_float);
 
 	// Write the results.
-	WriteBitmaskSReg(opcode.vdst, result.as_uint, lane_id);
+	WriteBitmaskSReg(OPCODE.vdst, result.as_uint, lane_id);
 
 }
 
 // D.u = !(S0.f <= S1.f).
-void InstructionVOP3A::V_CMP_NLE_F32_VOP3A(WarpState *item, uint32_t lane_id)
+void INST::V_CMP_NLE_F32_VOP3A(WarpState *item, uint32_t lane_id)
 {
 	ISAUnimplemented(item);
 }
 
 // D.u = !(S0.f == S1.f).
-void InstructionVOP3A::V_CMP_NEQ_F32_VOP3A(WarpState *item, uint32_t lane_id)
+void INST::V_CMP_NEQ_F32_VOP3A(WarpState *item, uint32_t lane_id)
 {
 	Register s0;
 	Register s1;
 	Register result;
 
-	assert(!opcode.clamp);
-	assert(!opcode.omod);
+	assert(!OPCODE.clamp);
+	assert(!OPCODE.omod);
 
 	// Load operands from registers.
-	s0.as_uint = ReadReg(opcode.src0);
-	s1.as_uint = ReadReg(opcode.src1);
+	s0.as_uint = ReadReg(OPCODE.src0);
+	s1.as_uint = ReadReg(OPCODE.src1);
 
 	// Apply absolute value modifiers.
-	if (opcode.abs & 1)
+	if (OPCODE.abs & 1)
 		s0.as_float = fabsf(s0.as_float);
-	if (opcode.abs & 2)
+	if (OPCODE.abs & 2)
 		s1.as_float = fabsf(s1.as_float);
-	assert(!(opcode.abs & 4));
+	assert(!(OPCODE.abs & 4));
 
 	// Apply negation modifiers.
-	if (opcode.neg & 1)
+	if (OPCODE.neg & 1)
 		s0.as_float = -s0.as_float;
-	if (opcode.neg & 2)
+	if (OPCODE.neg & 2)
 		s1.as_float = -s1.as_float;
-	assert(!(opcode.neg & 4));
+	assert(!(OPCODE.neg & 4));
 
 	// Compare the operands.
 	result.as_uint = !(s0.as_float == s1.as_float);
 
 	// Write the results.
-	WriteBitmaskSReg(opcode.vdst, result.as_uint, lane_id);
+	WriteBitmaskSReg(OPCODE.vdst, result.as_uint, lane_id);
 
 }
 
 // D.u = !(S0.f < S1.f).
-void InstructionVOP3A::V_CMP_NLT_F32_VOP3A(WarpState *item, uint32_t lane_id)
+void INST::V_CMP_NLT_F32_VOP3A(WarpState *item, uint32_t lane_id)
 {
 	Register s0;
 	Register s1;
 	Register result;
 
-	assert(!opcode.clamp);
-	assert(!opcode.omod);
+	assert(!OPCODE.clamp);
+	assert(!OPCODE.omod);
 
 	// Load operands from registers.
-	s0.as_uint = ReadReg(opcode.src0);
-	s1.as_uint = ReadReg(opcode.src1);
+	s0.as_uint = ReadReg(OPCODE.src0);
+	s1.as_uint = ReadReg(OPCODE.src1);
 
 	// Apply absolute value modifiers.
-	if (opcode.abs & 1)
+	if (OPCODE.abs & 1)
 		s0.as_float = fabsf(s0.as_float);
-	if (opcode.abs & 2)
+	if (OPCODE.abs & 2)
 		s1.as_float = fabsf(s1.as_float);
-	assert(!(opcode.abs & 4));
+	assert(!(OPCODE.abs & 4));
 
 	// Apply negation modifiers.
-	if (opcode.neg & 1)
+	if (OPCODE.neg & 1)
 		s0.as_float = -s0.as_float;
-	if (opcode.neg & 2)
+	if (OPCODE.neg & 2)
 		s1.as_float = -s1.as_float;
-	assert(!(opcode.neg & 4));
+	assert(!(OPCODE.neg & 4));
 
 	// Compare the operands.
 	result.as_uint = !(s0.as_float < s1.as_float);
 
 	// Write the results.
-	WriteBitmaskSReg(opcode.vdst, result.as_uint, lane_id);
+	WriteBitmaskSReg(OPCODE.vdst, result.as_uint, lane_id);
 
 }
 
 // Comparison Operations
-void InstructionVOP3A::V_CMP_OP16_F64_VOP3A(WarpState *item, uint32_t lane_id)
+void INST::V_CMP_OP16_F64_VOP3A(WarpState *item, uint32_t lane_id)
 {
 	ISAUnimplemented(item);
 }
 
 // D.u = (S0.i < S1.i).
-void InstructionVOP3A::V_CMP_LT_I32_VOP3A(WarpState *item, uint32_t lane_id)
+void INST::V_CMP_LT_I32_VOP3A(WarpState *item, uint32_t lane_id)
 {
 	Register s0;
 	Register s1;
 	Register result;
 
-	assert(!opcode.clamp);
-	assert(!opcode.omod);
+	assert(!OPCODE.clamp);
+	assert(!OPCODE.omod);
 
 	// Load operands from registers.
-	s0.as_uint = ReadReg(opcode.src0);
-	s1.as_uint = ReadReg(opcode.src1);
+	s0.as_uint = ReadReg(OPCODE.src0);
+	s1.as_uint = ReadReg(OPCODE.src1);
 
 	// Apply absolute value modifiers.
-	if (opcode.abs & 1)
+	if (OPCODE.abs & 1)
 		s0.as_int = abs(s0.as_int);
-	if (opcode.abs & 2)
+	if (OPCODE.abs & 2)
 		s1.as_int = abs(s1.as_int);
-	assert(!(opcode.abs & 4));
+	assert(!(OPCODE.abs & 4));
 
 	// Apply negation modifiers.
-	if (opcode.neg & 1)
+	if (OPCODE.neg & 1)
 		s0.as_int = -s0.as_int;
-	if (opcode.neg & 2)
+	if (OPCODE.neg & 2)
 		s1.as_int = -s1.as_int;
-	assert(!(opcode.neg & 4));
+	assert(!(OPCODE.neg & 4));
 
 	// Compare the operands.
 	result.as_uint = (s0.as_int < s1.as_int);
 
 	// Write the results.
-	WriteBitmaskSReg(opcode.vdst, result.as_uint, lane_id);
+	WriteBitmaskSReg(OPCODE.vdst, result.as_uint, lane_id);
 
 }
 
 // D.u = (S0.i == S1.i).
-void InstructionVOP3A::V_CMP_EQ_I32_VOP3A(WarpState *item, uint32_t lane_id)
+void INST::V_CMP_EQ_I32_VOP3A(WarpState *item, uint32_t lane_id)
 {
 	Register s0;
 	Register s1;
 	Register result;
 
-	assert(!opcode.clamp);
-	assert(!opcode.omod);
+	assert(!OPCODE.clamp);
+	assert(!OPCODE.omod);
 
 	// Load operands from registers.
-	s0.as_uint = ReadReg(opcode.src0);
-	s1.as_uint = ReadReg(opcode.src1);
+	s0.as_uint = ReadReg(OPCODE.src0);
+	s1.as_uint = ReadReg(OPCODE.src1);
 
 	// Apply absolute value modifiers.
-	if (opcode.abs & 1)
+	if (OPCODE.abs & 1)
 		s0.as_int = abs(s0.as_int);
-	if (opcode.abs & 2)
+	if (OPCODE.abs & 2)
 		s1.as_int = abs(s1.as_int);
-	assert(!(opcode.abs & 4));
+	assert(!(OPCODE.abs & 4));
 
 	// Apply negation modifiers.
-	if (opcode.neg & 1)
+	if (OPCODE.neg & 1)
 		s0.as_int = -s0.as_int;
-	if (opcode.neg & 2)
+	if (OPCODE.neg & 2)
 		s1.as_int = -s1.as_int;
-	assert(!(opcode.neg & 4));
+	assert(!(OPCODE.neg & 4));
 
 	// Compare the operands.
 	result.as_uint = (s0.as_int == s1.as_int);
 
 	// Write the results.
-	WriteBitmaskSReg(opcode.vdst, result.as_uint, lane_id);
+	WriteBitmaskSReg(OPCODE.vdst, result.as_uint, lane_id);
 
 }
 
 // D.u = (S0.i <= S1.i).
-void InstructionVOP3A::V_CMP_LE_I32_VOP3A(WarpState *item, uint32_t lane_id)
+void INST::V_CMP_LE_I32_VOP3A(WarpState *item, uint32_t lane_id)
 {
 	Register s0;
 	Register s1;
 	Register result;
 
-	assert(!opcode.clamp);
-	assert(!opcode.omod);
+	assert(!OPCODE.clamp);
+	assert(!OPCODE.omod);
 
 	// Load operands from registers.
-	s0.as_uint = ReadReg(opcode.src0);
-	s1.as_uint = ReadReg(opcode.src1);
+	s0.as_uint = ReadReg(OPCODE.src0);
+	s1.as_uint = ReadReg(OPCODE.src1);
 
 	// Apply absolute value modifiers.
-	if (opcode.abs & 1)
+	if (OPCODE.abs & 1)
 		s0.as_int = abs(s0.as_int);
-	if (opcode.abs & 2)
+	if (OPCODE.abs & 2)
 		s1.as_int = abs(s1.as_int);
-	assert(!(opcode.abs & 4));
+	assert(!(OPCODE.abs & 4));
 
 	// Apply negation modifiers.
-	if (opcode.neg & 1)
+	if (OPCODE.neg & 1)
 		s0.as_int = -s0.as_int;
-	if (opcode.neg & 2)
+	if (OPCODE.neg & 2)
 		s1.as_int = -s1.as_int;
-	assert(!(opcode.neg & 4));
+	assert(!(OPCODE.neg & 4));
 
 	// Compare the operands.
 	result.as_uint = (s0.as_int <= s1.as_int);
 
 	// Write the results.
-	WriteBitmaskSReg(opcode.vdst, result.as_uint, lane_id);
+	WriteBitmaskSReg(OPCODE.vdst, result.as_uint, lane_id);
 
 }
 
 // D.u = (S0.i > S1.i).
-void InstructionVOP3A::V_CMP_GT_I32_VOP3A(WarpState *item, uint32_t lane_id)
+void INST::V_CMP_GT_I32_VOP3A(WarpState *item, uint32_t lane_id)
 {
 	Register s0;
 	Register s1;
 	Register result;
 
-	assert(!opcode.clamp);
-	assert(!opcode.omod);
+	assert(!OPCODE.clamp);
+	assert(!OPCODE.omod);
 
 	// Load operands from registers.
-	s0.as_uint = ReadReg(opcode.src0);
-	s1.as_uint = ReadReg(opcode.src1);
+	s0.as_uint = ReadReg(OPCODE.src0);
+	s1.as_uint = ReadReg(OPCODE.src1);
 
 	// Apply absolute value modifiers.
-	if (opcode.abs & 1)
+	if (OPCODE.abs & 1)
 		s0.as_int = abs(s0.as_int);
-	if (opcode.abs & 2)
+	if (OPCODE.abs & 2)
 		s1.as_int = abs(s1.as_int);
-	assert(!(opcode.abs & 4));
+	assert(!(OPCODE.abs & 4));
 
 	// Apply negation modifiers.
-	if (opcode.neg & 1)
+	if (OPCODE.neg & 1)
 		s0.as_int = -s0.as_int;
-	if (opcode.neg & 2)
+	if (OPCODE.neg & 2)
 		s1.as_int = -s1.as_int;
-	assert(!(opcode.neg & 4));
+	assert(!(OPCODE.neg & 4));
 
 	// Compare the operands.
 	result.as_uint = (s0.as_int > s1.as_int);
 
 	// Write the results.
-	WriteBitmaskSReg(opcode.vdst, result.as_uint, lane_id);
+	WriteBitmaskSReg(OPCODE.vdst, result.as_uint, lane_id);
 
 }
 
 // D.u = (S0.i <> S1.i).
-void InstructionVOP3A::V_CMP_NE_I32_VOP3A(WarpState *item, uint32_t lane_id)
+void INST::V_CMP_NE_I32_VOP3A(WarpState *item, uint32_t lane_id)
 {
 	Register s0;
 	Register s1;
 	Register result;
 
-	assert(!opcode.clamp);
-	assert(!opcode.omod);
+	assert(!OPCODE.clamp);
+	assert(!OPCODE.omod);
 
 	// Load operands from registers.
-	s0.as_uint = ReadReg(opcode.src0);
-	s1.as_uint = ReadReg(opcode.src1);
+	s0.as_uint = ReadReg(OPCODE.src0);
+	s1.as_uint = ReadReg(OPCODE.src1);
 
 	// Apply absolute value modifiers.
-	if (opcode.abs & 1)
+	if (OPCODE.abs & 1)
 		s0.as_int = abs(s0.as_int);
-	if (opcode.abs & 2)
+	if (OPCODE.abs & 2)
 		s1.as_int = abs(s1.as_int);
-	assert(!(opcode.abs & 4));
+	assert(!(OPCODE.abs & 4));
 
 	// Apply negation modifiers.
-	if (opcode.neg & 1)
+	if (OPCODE.neg & 1)
 		s0.as_int = -s0.as_int;
-	if (opcode.neg & 2)
+	if (OPCODE.neg & 2)
 		s1.as_int = -s1.as_int;
-	assert(!(opcode.neg & 4));
+	assert(!(OPCODE.neg & 4));
 
 	// Compare the operands.
 	result.as_uint = !(s0.as_int == s1.as_int);
 
 	// Write the results.
-	WriteBitmaskSReg(opcode.vdst, result.as_uint, lane_id);
+	WriteBitmaskSReg(OPCODE.vdst, result.as_uint, lane_id);
 
 }
 
 // D.u = (S0.i >= S1.i).
-void InstructionVOP3A::V_CMP_GE_I32_VOP3A(WarpState *item, uint32_t lane_id)
+void INST::V_CMP_GE_I32_VOP3A(WarpState *item, uint32_t lane_id)
 {
 	Register s0;
 	Register s1;
 	Register result;
 
-	assert(!opcode.clamp);
-	assert(!opcode.omod);
+	assert(!OPCODE.clamp);
+	assert(!OPCODE.omod);
 
 	// Load operands from registers.
-	s0.as_uint = ReadReg(opcode.src0);
-	s1.as_uint = ReadReg(opcode.src1);
+	s0.as_uint = ReadReg(OPCODE.src0);
+	s1.as_uint = ReadReg(OPCODE.src1);
 
 	// Apply absolute value modifiers.
-	if (opcode.abs & 1)
+	if (OPCODE.abs & 1)
 		s0.as_int = abs(s0.as_int);
-	if (opcode.abs & 2)
+	if (OPCODE.abs & 2)
 		s1.as_int = abs(s1.as_int);
-	assert(!(opcode.abs & 4));
+	assert(!(OPCODE.abs & 4));
 
 	// Apply negation modifiers.
-	if (opcode.neg & 1)
+	if (OPCODE.neg & 1)
 		s0.as_int = -s0.as_int;
-	if (opcode.neg & 2)
+	if (OPCODE.neg & 2)
 		s1.as_int = -s1.as_int;
-	assert(!(opcode.neg & 4));
+	assert(!(OPCODE.neg & 4));
 
 	// Compare the operands.
 	result.as_uint = (s0.as_int >= s1.as_int);
 
 	// Write the results.
-	WriteBitmaskSReg(opcode.vdst, result.as_uint, lane_id);
+	WriteBitmaskSReg(OPCODE.vdst, result.as_uint, lane_id);
 
 }
 
 // D.u = (S0.i == S1.i). Also write EXEC
-void InstructionVOP3A::V_CMPX_EQ_I32_VOP3A(WarpState *item, uint32_t lane_id)
+void INST::V_CMPX_EQ_I32_VOP3A(WarpState *item, uint32_t lane_id)
 {
 	Register s0;
 	Register s1;
 	Register result;
 
-	assert(!opcode.clamp);
-	assert(!opcode.omod);
+	assert(!OPCODE.clamp);
+	assert(!OPCODE.omod);
 
 	// Load operands from registers.
-	s0.as_uint = ReadReg(opcode.src0);
-	s1.as_uint = ReadReg(opcode.src1);
+	s0.as_uint = ReadReg(OPCODE.src0);
+	s1.as_uint = ReadReg(OPCODE.src1);
 
 	// Apply absolute value modifiers.
-	if (opcode.abs & 1)
+	if (OPCODE.abs & 1)
 		s0.as_int = abs(s0.as_int);
-	if (opcode.abs & 2)
+	if (OPCODE.abs & 2)
 		s1.as_int = abs(s1.as_int);
-	assert(!(opcode.abs & 4));
+	assert(!(OPCODE.abs & 4));
 
 	// Apply negation modifiers.
-	if (opcode.neg & 1)
+	if (OPCODE.neg & 1)
 		s0.as_int = -s0.as_int;
-	if (opcode.neg & 2)
+	if (OPCODE.neg & 2)
 		s1.as_int = -s1.as_int;
-	assert(!(opcode.neg & 4));
+	assert(!(OPCODE.neg & 4));
 
 	// Compare the operands.
 	result.as_uint = (s0.as_int == s1.as_int);
 
 	// Write the results.
-	WriteBitmaskSReg(opcode.vdst, result.as_uint, lane_id);
+	WriteBitmaskSReg(OPCODE.vdst, result.as_uint, lane_id);
 
 	// Write EXEC
 	WriteBitmaskSReg(RegisterExec, result.as_uint, lane_id);
@@ -1126,154 +1134,154 @@ void InstructionVOP3A::V_CMPX_EQ_I32_VOP3A(WarpState *item, uint32_t lane_id)
 }
 
 // D = IEEE numeric class function specified in S1.u, performed on S0.d.
-void InstructionVOP3A::V_CMP_CLASS_F64_VOP3A(WarpState *item, uint32_t lane_id)
+void INST::V_CMP_CLASS_F64_VOP3A(WarpState *item, uint32_t lane_id)
 {
 	ISAUnimplemented(item);
 }
 
 // D.u = (S0.u < S1.u).
-void InstructionVOP3A::V_CMP_LT_U32_VOP3A(WarpState *item, uint32_t lane_id)
+void INST::V_CMP_LT_U32_VOP3A(WarpState *item, uint32_t lane_id)
 {
 	Register s0;
 	Register s1;
 	Register result;
 
-	assert(!opcode.clamp);
-	assert(!opcode.omod);
-	assert(!opcode.neg);
-	assert(!opcode.abs);
+	assert(!OPCODE.clamp);
+	assert(!OPCODE.omod);
+	assert(!OPCODE.neg);
+	assert(!OPCODE.abs);
 
 	// Load operands from registers.
-	s0.as_uint = ReadReg(opcode.src0);
-	s1.as_uint = ReadReg(opcode.src1);
+	s0.as_uint = ReadReg(OPCODE.src0);
+	s1.as_uint = ReadReg(OPCODE.src1);
 
 	// Compare the operands.
 	result.as_uint = (s0.as_uint < s1.as_uint);
 
 	// Write the results.
-	WriteBitmaskSReg(opcode.vdst, result.as_uint, lane_id);
+	WriteBitmaskSReg(OPCODE.vdst, result.as_uint, lane_id);
 
 }
 
 // D.u = (S0.u <= S1.u).
-void InstructionVOP3A::V_CMP_LE_U32_VOP3A(WarpState *item, uint32_t lane_id)
+void INST::V_CMP_LE_U32_VOP3A(WarpState *item, uint32_t lane_id)
 {
 	Register s0;
 	Register s1;
 	Register result;
 
-	assert(!opcode.clamp);
-	assert(!opcode.omod);
-	assert(!opcode.neg);
-	assert(!opcode.abs);
+	assert(!OPCODE.clamp);
+	assert(!OPCODE.omod);
+	assert(!OPCODE.neg);
+	assert(!OPCODE.abs);
 
 	// Load operands from registers.
-	s0.as_uint = ReadReg(opcode.src0);
-	s1.as_uint = ReadReg(opcode.src1);
+	s0.as_uint = ReadReg(OPCODE.src0);
+	s1.as_uint = ReadReg(OPCODE.src1);
 
 	// Compare the operands.
 	result.as_uint = (s0.as_uint <= s1.as_uint);
 
 	// Write the results.
-	WriteBitmaskSReg(opcode.vdst, result.as_uint, lane_id);
+	WriteBitmaskSReg(OPCODE.vdst, result.as_uint, lane_id);
 
 }
 
 // D.u = (S0.u > S1.u).
-void InstructionVOP3A::V_CMP_GT_U32_VOP3A(WarpState *item, uint32_t lane_id)
+void INST::V_CMP_GT_U32_VOP3A(WarpState *item, uint32_t lane_id)
 {
 	Register s0;
 	Register s1;
 	Register result;
 
-	assert(!opcode.clamp);
-	assert(!opcode.omod);
-	assert(!opcode.neg);
-	assert(!opcode.abs);
+	assert(!OPCODE.clamp);
+	assert(!OPCODE.omod);
+	assert(!OPCODE.neg);
+	assert(!OPCODE.abs);
 
 	// Load operands from registers.
-	s0.as_uint = ReadReg(opcode.src0);
-	s1.as_uint = ReadReg(opcode.src1);
+	s0.as_uint = ReadReg(OPCODE.src0);
+	s1.as_uint = ReadReg(OPCODE.src1);
 
 	// Compare the operands.
 	result.as_uint = (s0.as_uint > s1.as_uint);
 
 	// Write the results.
-	WriteBitmaskSReg(opcode.vdst, result.as_uint, lane_id);
+	WriteBitmaskSReg(OPCODE.vdst, result.as_uint, lane_id);
 
 }
 
-void InstructionVOP3A::V_CMP_LG_U32_VOP3A(WarpState *item, uint32_t lane_id)
+void INST::V_CMP_LG_U32_VOP3A(WarpState *item, uint32_t lane_id)
 {
 	Register s0;
 	Register s1;
 	Register result;
 
-	assert(!opcode.clamp);
-	assert(!opcode.omod);
-	assert(!opcode.neg);
-	assert(!opcode.abs);
+	assert(!OPCODE.clamp);
+	assert(!OPCODE.omod);
+	assert(!OPCODE.neg);
+	assert(!OPCODE.abs);
 
 	// Load operands from registers.
-	s0.as_uint = ReadReg(opcode.src0);
-	s1.as_uint = ReadReg(opcode.src1);
+	s0.as_uint = ReadReg(OPCODE.src0);
+	s1.as_uint = ReadReg(OPCODE.src1);
 
 	// Calculate result.
 	result.as_uint = ((s0.as_uint < s1.as_uint) ||
 		(s0.as_uint > s1.as_uint));
 
 	// Write the results.
-	WriteBitmaskSReg(opcode.vdst, result.as_uint, lane_id);
+	WriteBitmaskSReg(OPCODE.vdst, result.as_uint, lane_id);
 
 }
 
 // D.u = (S0.u >= S1.u).
-void InstructionVOP3A::V_CMP_GE_U32_VOP3A(WarpState *item, uint32_t lane_id)
+void INST::V_CMP_GE_U32_VOP3A(WarpState *item, uint32_t lane_id)
 {
 	Register s0;
 	Register s1;
 	Register result;
 
-	assert(!opcode.clamp);
-	assert(!opcode.omod);
-	assert(!opcode.neg);
-	assert(!opcode.abs);
+	assert(!OPCODE.clamp);
+	assert(!OPCODE.omod);
+	assert(!OPCODE.neg);
+	assert(!OPCODE.abs);
 
 	// Load operands from registers.
-	s0.as_uint = ReadReg(opcode.src0);
-	s1.as_uint = ReadReg(opcode.src1);
+	s0.as_uint = ReadReg(OPCODE.src0);
+	s1.as_uint = ReadReg(OPCODE.src1);
 
 	// Compare the operands.
 	result.as_uint = (s0.as_uint >= s1.as_uint);
 
 	// Write the results.
-	WriteBitmaskSReg(opcode.vdst, result.as_uint, lane_id);
+	WriteBitmaskSReg(OPCODE.vdst, result.as_uint, lane_id);
 
 }
 
 // D.u = (S0 < S1)
-void InstructionVOP3A::V_CMP_LT_U64_VOP3A(WarpState *item, uint32_t lane_id)
+void INST::V_CMP_LT_U64_VOP3A(WarpState *item, uint32_t lane_id)
 {
 	ISAUnimplemented(item);
 }
 
 // Max of three numbers.
-void InstructionVOP3A::V_MAX3_I32(WarpState *item, uint32_t lane_id)
+void INST::V_MAX3_I32(WarpState *item, uint32_t lane_id)
 {
 	Register s0;
 	Register s1;
 	Register s2;
 	Register max;
 
-	assert(!opcode.clamp);
-	assert(!opcode.omod);
-	assert(!opcode.neg);
-	assert(!opcode.abs);
+	assert(!OPCODE.clamp);
+	assert(!OPCODE.omod);
+	assert(!OPCODE.neg);
+	assert(!OPCODE.abs);
 
 	// Load operands from registers.
-	s0.as_uint = ReadReg(opcode.src0);
-	s1.as_uint = ReadReg(opcode.src1);
-	s2.as_uint = ReadReg(opcode.src2);
+	s0.as_uint = ReadReg(OPCODE.src0);
+	s1.as_uint = ReadReg(OPCODE.src1);
+	s2.as_uint = ReadReg(OPCODE.src2);
 
 	// Determine the max.
 	// max3(s0, s1, s2) == s0
@@ -1297,27 +1305,27 @@ void InstructionVOP3A::V_MAX3_I32(WarpState *item, uint32_t lane_id)
 	}
 
 	// Write the results.
-	WriteVReg(opcode.vdst, max.as_uint, lane_id);
+	WriteVReg(OPCODE.vdst, max.as_uint, lane_id);
 
 }
 
 // Median of three numbers.
-void InstructionVOP3A::V_MED3_I32(WarpState *item, uint32_t lane_id)
+void INST::V_MED3_I32(WarpState *item, uint32_t lane_id)
 {
 	Register s0;
 	Register s1;
 	Register s2;
 	Register median;
 
-	assert(!opcode.clamp);
-	assert(!opcode.omod);
-	assert(!opcode.neg);
-	assert(!opcode.abs);
+	assert(!OPCODE.clamp);
+	assert(!OPCODE.omod);
+	assert(!OPCODE.neg);
+	assert(!OPCODE.abs);
 
 	// Load operands from registers.
-	s0.as_uint = ReadReg(opcode.src0);
-	s1.as_uint = ReadReg(opcode.src1);
-	s2.as_uint = ReadReg(opcode.src2);
+	s0.as_uint = ReadReg(OPCODE.src0);
+	s1.as_uint = ReadReg(OPCODE.src1);
+	s2.as_uint = ReadReg(OPCODE.src2);
 
 	// Determine the median.
 	// max3(s0, s1, s2) == s0
@@ -1347,12 +1355,12 @@ void InstructionVOP3A::V_MED3_I32(WarpState *item, uint32_t lane_id)
 	}
 
 	// Write the results.
-	WriteVReg(opcode.vdst, median.as_uint, lane_id);
+	WriteVReg(OPCODE.vdst, median.as_uint, lane_id);
 
 }
 
 // D = S0.u >> S1.u[4:0].
-void InstructionVOP3A::V_LSHR_B64(WarpState *item, uint32_t lane_id)
+void INST::V_LSHR_B64(WarpState *item, uint32_t lane_id)
 {
 	union
 	{
@@ -1365,15 +1373,15 @@ void InstructionVOP3A::V_LSHR_B64(WarpState *item, uint32_t lane_id)
 	Register result_lo;
 	Register result_hi;
 
-	assert(!opcode.clamp);
-	assert(!opcode.omod);
-	assert(!opcode.neg);
-	assert(!opcode.abs);
+	assert(!OPCODE.clamp);
+	assert(!OPCODE.omod);
+	assert(!OPCODE.neg);
+	assert(!OPCODE.abs);
 
 	// Load operands from registers.
-	s0.as_reg[0] = ReadReg(opcode.src0);
-	s0.as_reg[1] = ReadReg(opcode.src0 + 1);
-	s1.as_uint = ReadReg(opcode.src1);
+	s0.as_reg[0] = ReadReg(OPCODE.src0);
+	s0.as_reg[1] = ReadReg(OPCODE.src0 + 1);
+	s1.as_uint = ReadReg(OPCODE.src1);
 	s1.as_uint = s1.as_uint & 0x1F;
 
 	// Shift s0.
@@ -1382,13 +1390,13 @@ void InstructionVOP3A::V_LSHR_B64(WarpState *item, uint32_t lane_id)
 	// Write the results.
 	result_lo.as_uint = value.as_reg[0];
 	result_hi.as_uint = value.as_reg[1];
-	WriteVReg(opcode.vdst, result_lo.as_uint, lane_id);
-	WriteVReg(opcode.vdst + 1, result_hi.as_uint, lane_id);
+	WriteVReg(OPCODE.vdst, result_lo.as_uint, lane_id);
+	WriteVReg(OPCODE.vdst + 1, result_hi.as_uint, lane_id);
 
 }
 
 // D = S0.u >> S1.u[4:0] (Arithmetic shift)
-void InstructionVOP3A::V_ASHR_I64(WarpState *item, uint32_t lane_id)
+void INST::V_ASHR_I64(WarpState *item, uint32_t lane_id)
 {
 	union
 	{
@@ -1401,15 +1409,15 @@ void InstructionVOP3A::V_ASHR_I64(WarpState *item, uint32_t lane_id)
 	Register result_lo;
 	Register result_hi;
 
-	assert(!opcode.clamp);
-	assert(!opcode.omod);
-	assert(!opcode.neg);
-	assert(!opcode.abs);
+	assert(!OPCODE.clamp);
+	assert(!OPCODE.omod);
+	assert(!OPCODE.neg);
+	assert(!OPCODE.abs);
 
 	// Load operands from registers.
-	s0.as_reg[0] = ReadReg(opcode.src0);
-	s0.as_reg[1] = ReadReg(opcode.src0 + 1);
-	s1.as_uint = ReadReg(opcode.src1);
+	s0.as_reg[0] = ReadReg(OPCODE.src0);
+	s0.as_reg[1] = ReadReg(OPCODE.src0 + 1);
+	s1.as_uint = ReadReg(OPCODE.src1);
 	s1.as_uint = s1.as_uint & 0x1F;
 
 	// Shift s0.
@@ -1418,13 +1426,13 @@ void InstructionVOP3A::V_ASHR_I64(WarpState *item, uint32_t lane_id)
 	// Write the results.
 	result_lo.as_uint = value.as_reg[0];
 	result_hi.as_uint = value.as_reg[1];
-	WriteVReg(opcode.vdst, result_lo.as_uint, lane_id);
-	WriteVReg(opcode.vdst + 1, result_hi.as_uint, lane_id);
+	WriteVReg(OPCODE.vdst, result_lo.as_uint, lane_id);
+	WriteVReg(OPCODE.vdst + 1, result_hi.as_uint, lane_id);
 
 }
 
 // D.d = S0.d + S1.d.
-void InstructionVOP3A::V_ADD_F64(WarpState *item, uint32_t lane_id)
+void INST::V_ADD_F64(WarpState *item, uint32_t lane_id)
 {
 	union
 	{
@@ -1436,16 +1444,16 @@ void InstructionVOP3A::V_ADD_F64(WarpState *item, uint32_t lane_id)
 	Register result_lo;
 	Register result_hi;
 
-	assert(!opcode.clamp);
-	assert(!opcode.omod);
-	assert(!opcode.neg);
-	assert(!opcode.abs);
+	assert(!OPCODE.clamp);
+	assert(!OPCODE.omod);
+	assert(!OPCODE.neg);
+	assert(!OPCODE.abs);
 
 	// Load operands from registers.
-	s0.as_reg[0] = ReadReg(opcode.src0);
-	s0.as_reg[1] = ReadReg(opcode.src0 + 1);
-	s1.as_reg[0] = ReadReg(opcode.src1);
-	s1.as_reg[1] = ReadReg(opcode.src1 + 1);
+	s0.as_reg[0] = ReadReg(OPCODE.src0);
+	s0.as_reg[1] = ReadReg(OPCODE.src0 + 1);
+	s1.as_reg[0] = ReadReg(OPCODE.src1);
+	s1.as_reg[1] = ReadReg(OPCODE.src1 + 1);
 
 	// Add the operands, take into account special number cases.
 
@@ -1524,13 +1532,13 @@ void InstructionVOP3A::V_ADD_F64(WarpState *item, uint32_t lane_id)
 	// Write the results.
 	result_lo.as_uint = value.as_reg[0];
 	result_hi.as_uint = value.as_reg[1];
-	WriteVReg(opcode.vdst, result_lo.as_uint, lane_id);
-	WriteVReg(opcode.vdst + 1, result_hi.as_uint, lane_id);
+	WriteVReg(OPCODE.vdst, result_lo.as_uint, lane_id);
+	WriteVReg(OPCODE.vdst + 1, result_hi.as_uint, lane_id);
 
 }
 
 // D.d = S0.d * S1.d.
-void InstructionVOP3A::V_MUL_F64(WarpState *item, uint32_t lane_id)
+void INST::V_MUL_F64(WarpState *item, uint32_t lane_id)
 {
 	union
 	{
@@ -1542,16 +1550,16 @@ void InstructionVOP3A::V_MUL_F64(WarpState *item, uint32_t lane_id)
 	Register result_lo;
 	Register result_hi;
 
-	assert(!opcode.clamp);
-	assert(!opcode.omod);
-	assert(!opcode.neg);
-	assert(!opcode.abs);
+	assert(!OPCODE.clamp);
+	assert(!OPCODE.omod);
+	assert(!OPCODE.neg);
+	assert(!OPCODE.abs);
 
 	// Load operands from registers.
-	s0.as_reg[0] = ReadReg(opcode.src0);
-	s0.as_reg[1] = ReadReg(opcode.src0 + 1);
-	s1.as_reg[0] = ReadReg(opcode.src1);
-	s1.as_reg[1] = ReadReg(opcode.src1 + 1);
+	s0.as_reg[0] = ReadReg(OPCODE.src0);
+	s0.as_reg[1] = ReadReg(OPCODE.src0 + 1);
+	s1.as_reg[0] = ReadReg(OPCODE.src1);
+	s1.as_reg[1] = ReadReg(OPCODE.src1 + 1);
 
 	// Multiply the operands, take into account special number cases.
 
@@ -1642,13 +1650,13 @@ void InstructionVOP3A::V_MUL_F64(WarpState *item, uint32_t lane_id)
 	// Write the results.
 	result_lo.as_uint = value.as_reg[0];
 	result_hi.as_uint = value.as_reg[1];
-	WriteVReg(opcode.vdst, result_lo.as_uint, lane_id);
-	WriteVReg(opcode.vdst + 1, result_hi.as_uint, lane_id);
+	WriteVReg(OPCODE.vdst, result_lo.as_uint, lane_id);
+	WriteVReg(OPCODE.vdst + 1, result_hi.as_uint, lane_id);
 
 }
 
 // D.d = Look Up 2/PI (S0.d) with segment select S1.u[4:0].
-void InstructionVOP3A::V_LDEXP_F64(WarpState *item, uint32_t lane_id)
+void INST::V_LDEXP_F64(WarpState *item, uint32_t lane_id)
 {
 	ISAUnimplemented(item);
 }

@@ -1,26 +1,32 @@
 #include "inc/Instruction.h"
 #include "inc/InstructionCommon.h"
 
-#define opcode bytes.VMUBUF
+#define OPCODE bytes.VMUBUF
+#define INST InstructionVMUBUF
 
-void InstructionVMUBUF::Decode(uint64_t _opcode) {
+void INST::Decode(uint64_t _opcode) {
     bytes.dword = _opcode;
-    info.op = opcode.op;
+    info.op = OPCODE.op;
     m_size = 8;
 }
 
-void InstructionVMUBUF::print() {
+void INST::print() {
     printf("Instruction: %s(%x)\n", opcode_str[info.op].c_str(), info.op);
 }
+void INST::dumpExecBegin(WarpState *w) {
+}
 
-void InstructionVMUBUF::V_BUFFER_LOAD_SBYTE(WarpState *item, uint32_t lane_id)
+void INST::dumpExecEnd(WarpState *w) {
+}
+
+void INST::V_BUFFER_LOAD_SBYTE(WarpState *item, uint32_t lane_id)
 {
 
-	assert(!opcode.addr64);
-	assert(!opcode.glc);
-	assert(!opcode.slc);
-	assert(!opcode.tfe);
-	assert(!opcode.lds);
+	assert(!OPCODE.addr64);
+	assert(!OPCODE.glc);
+	assert(!OPCODE.slc);
+	assert(!OPCODE.tfe);
+	assert(!OPCODE.lds);
 
 	BufferDescriptor buffer_descriptor;
 	Register value;
@@ -31,26 +37,26 @@ void InstructionVMUBUF::V_BUFFER_LOAD_SBYTE(WarpState *item, uint32_t lane_id)
 	int bytes_to_read = 1;
 
 	// srsrc is in units of 4 registers
-	ReadBufferResource(opcode.srsrc * 4, buffer_descriptor);
+	ReadBufferResource(OPCODE.srsrc * 4, buffer_descriptor);
 
 	unsigned base = buffer_descriptor.base_addr;
-	unsigned mem_offset = ReadSReg(opcode.soffset);
-	unsigned inst_offset = opcode.offset;
+	unsigned mem_offset = ReadSReg(OPCODE.soffset);
+	unsigned inst_offset = OPCODE.offset;
 	unsigned stride = buffer_descriptor.stride;
 
 	// Table 8.3 from SI ISA
-	if (!opcode.idxen && opcode.offen)
+	if (!OPCODE.idxen && OPCODE.offen)
 	{
-		off_vgpr = ReadVReg(opcode.vaddr, lane_id);
+		off_vgpr = ReadVReg(OPCODE.vaddr, lane_id);
 	}
-	else if (opcode.idxen && !opcode.offen)
+	else if (OPCODE.idxen && !OPCODE.offen)
 	{
-		idx_vgpr = ReadVReg(opcode.vaddr, lane_id);
+		idx_vgpr = ReadVReg(OPCODE.vaddr, lane_id);
 	}
-	else if (opcode.idxen && opcode.offen)
+	else if (OPCODE.idxen && OPCODE.offen)
 	{
-		idx_vgpr = ReadVReg(opcode.vaddr, lane_id);
-		off_vgpr = ReadVReg(opcode.vaddr + 1, lane_id);
+		idx_vgpr = ReadVReg(OPCODE.vaddr, lane_id);
+		off_vgpr = ReadVReg(OPCODE.vaddr + 1, lane_id);
 	}
 
 	/* It wouldn't make sense to have a value for idxen without
@@ -67,7 +73,7 @@ void InstructionVMUBUF::V_BUFFER_LOAD_SBYTE(WarpState *item, uint32_t lane_id)
 	// Sign extend
 	value.as_int = (int) value.as_byte[0];
 
-	WriteVReg(opcode.vdata, value.as_uint, lane_id);
+	WriteVReg(OPCODE.vdata, value.as_uint, lane_id);
 
 	// Record last memory access for the detailed simulator.
 	item->m_global_memory_access_address = addr;
@@ -76,18 +82,18 @@ void InstructionVMUBUF::V_BUFFER_LOAD_SBYTE(WarpState *item, uint32_t lane_id)
 	/*if (Emulator::isa_debug)
 	{
 		Emulator::isa_debug << misc::fmt("t%d: V%u<=(%u)(%d) ", id,
-			opcode.vdata, addr, value.as_int);
+			OPCODE.vdata, addr, value.as_int);
 	}*/
 }
 
-void InstructionVMUBUF::V_BUFFER_LOAD_DWORD(WarpState *item, uint32_t lane_id)
+void INST::V_BUFFER_LOAD_DWORD(WarpState *item, uint32_t lane_id)
 {
 
-	assert(!opcode.addr64);
-	assert(!opcode.glc);
-	assert(!opcode.slc);
-	assert(!opcode.tfe);
-	assert(!opcode.lds);
+	assert(!OPCODE.addr64);
+	assert(!OPCODE.glc);
+	assert(!OPCODE.slc);
+	assert(!OPCODE.tfe);
+	assert(!OPCODE.lds);
 
 	BufferDescriptor buffer_descriptor;
 	Register value;
@@ -98,26 +104,26 @@ void InstructionVMUBUF::V_BUFFER_LOAD_DWORD(WarpState *item, uint32_t lane_id)
 	int bytes_to_read = 4;
 
 	// srsrc is in units of 4 registers
-	ReadBufferResource(opcode.srsrc * 4, buffer_descriptor);
+	ReadBufferResource(OPCODE.srsrc * 4, buffer_descriptor);
 
 	unsigned base = buffer_descriptor.base_addr;
-	unsigned mem_offset = ReadSReg(opcode.soffset);
-	unsigned inst_offset = opcode.offset;
+	unsigned mem_offset = ReadSReg(OPCODE.soffset);
+	unsigned inst_offset = OPCODE.offset;
 	unsigned stride = buffer_descriptor.stride;
 
 	// Table 8.3 from SI ISA
-	if (!opcode.idxen && opcode.offen)
+	if (!OPCODE.idxen && OPCODE.offen)
 	{
-		off_vgpr = ReadVReg(opcode.vaddr, lane_id);
+		off_vgpr = ReadVReg(OPCODE.vaddr, lane_id);
 	}
-	else if (opcode.idxen && !opcode.offen)
+	else if (OPCODE.idxen && !OPCODE.offen)
 	{
-		idx_vgpr = ReadVReg(opcode.vaddr, lane_id);
+		idx_vgpr = ReadVReg(OPCODE.vaddr, lane_id);
 	}
-	else if (opcode.idxen && opcode.offen)
+	else if (OPCODE.idxen && OPCODE.offen)
 	{
-		idx_vgpr = ReadVReg(opcode.vaddr, lane_id);
-		off_vgpr = ReadVReg(opcode.vaddr + 1, lane_id);
+		idx_vgpr = ReadVReg(OPCODE.vaddr, lane_id);
+		off_vgpr = ReadVReg(OPCODE.vaddr + 1, lane_id);
 	}
 
 	/* It wouldn't make sense to have a value for idxen without
@@ -134,7 +140,7 @@ void InstructionVMUBUF::V_BUFFER_LOAD_DWORD(WarpState *item, uint32_t lane_id)
 	// Sign extend
 	value.as_int = (int) value.as_byte[0];
 
-	WriteVReg(opcode.vdata, value.as_uint, lane_id);
+	WriteVReg(OPCODE.vdata, value.as_uint, lane_id);
 
 	// Record last memory access for the detailed simulator.
 	item->m_global_memory_access_address = addr;
@@ -143,17 +149,17 @@ void InstructionVMUBUF::V_BUFFER_LOAD_DWORD(WarpState *item, uint32_t lane_id)
 	/*if (Emulator::isa_debug)
 	{
 		Emulator::isa_debug << misc::fmt("t%d: V%u<=(%u)(%d) ", id,
-			opcode.vdata, addr, value.as_int);
+			OPCODE.vdata, addr, value.as_int);
 	}*/
 }
 
-void InstructionVMUBUF::V_BUFFER_STORE_SBYTE(WarpState *item, uint32_t lane_id)
+void INST::V_BUFFER_STORE_SBYTE(WarpState *item, uint32_t lane_id)
 {
 
-	assert(!opcode.addr64);
-	assert(!opcode.slc);
-	assert(!opcode.tfe);
-	assert(!opcode.lds);
+	assert(!OPCODE.addr64);
+	assert(!OPCODE.slc);
+	assert(!OPCODE.tfe);
+	assert(!OPCODE.lds);
 
 	BufferDescriptor buffer_descriptor;
 	Register value;
@@ -163,32 +169,32 @@ void InstructionVMUBUF::V_BUFFER_STORE_SBYTE(WarpState *item, uint32_t lane_id)
 
 	int bytes_to_write = 1;
 
-	if (opcode.glc)
+	if (OPCODE.glc)
 	{
 		item->SetVectorMemoryGlobalCoherency(true); // FIXME redundant
 	}
 
 	// srsrc is in units of 4 registers
-	ReadBufferResource(opcode.srsrc * 4, buffer_descriptor);
+	ReadBufferResource(OPCODE.srsrc * 4, buffer_descriptor);
 
 	unsigned base = buffer_descriptor.base_addr;
-	unsigned mem_offset = ReadSReg(opcode.soffset);
-	unsigned inst_offset = opcode.offset;
+	unsigned mem_offset = ReadSReg(OPCODE.soffset);
+	unsigned inst_offset = OPCODE.offset;
 	unsigned stride = buffer_descriptor.stride;
 
 	// Table 8.3 from SI ISA
-	if (!opcode.idxen && opcode.offen)
+	if (!OPCODE.idxen && OPCODE.offen)
 	{
-		off_vgpr = ReadVReg(opcode.vaddr, lane_id);
+		off_vgpr = ReadVReg(OPCODE.vaddr, lane_id);
 	}
-	else if (opcode.idxen && !opcode.offen)
+	else if (OPCODE.idxen && !OPCODE.offen)
 	{
-		idx_vgpr = ReadVReg(opcode.vaddr, lane_id);
+		idx_vgpr = ReadVReg(OPCODE.vaddr, lane_id);
 	}
-	else if (opcode.idxen && opcode.offen)
+	else if (OPCODE.idxen && OPCODE.offen)
 	{
-		idx_vgpr = ReadVReg(opcode.vaddr, lane_id);
-		off_vgpr = ReadVReg(opcode.vaddr + 1, lane_id);
+		idx_vgpr = ReadVReg(OPCODE.vaddr, lane_id);
+		off_vgpr = ReadVReg(OPCODE.vaddr + 1, lane_id);
 	}
 
 	/* It wouldn't make sense to have a value for idxen without
@@ -199,14 +205,14 @@ void InstructionVMUBUF::V_BUFFER_STORE_SBYTE(WarpState *item, uint32_t lane_id)
 	unsigned addr = base + mem_offset + inst_offset + off_vgpr +
 		stride * (idx_vgpr + lane_id);
 
-	value.as_int = ReadVReg(opcode.vdata, lane_id);
+	value.as_int = ReadVReg(OPCODE.vdata, lane_id);
 
 	WriteVMEM(addr, bytes_to_write, (char *)&value);
 
 	// Sign extend
 	//value.as_int = (int) value.as_byte[0];
 
-	WriteVReg(opcode.vdata, value.as_uint, lane_id);
+	WriteVReg(OPCODE.vdata, value.as_uint, lane_id);
 
 	// Record last memory access for the detailed simulator.
 	item->m_global_memory_access_address = addr;
@@ -215,17 +221,17 @@ void InstructionVMUBUF::V_BUFFER_STORE_SBYTE(WarpState *item, uint32_t lane_id)
 	/*if (Emulator::isa_debug)
 	{
 		Emulator::isa_debug << misc::fmt("t%d: V%u<=(%u)(%d) ", id,
-			opcode.vdata, addr, value.as_int);
+			OPCODE.vdata, addr, value.as_int);
 	}*/
 }
 
-void InstructionVMUBUF::V_BUFFER_STORE_DWORD(WarpState *item, uint32_t lane_id)
+void INST::V_BUFFER_STORE_DWORD(WarpState *item, uint32_t lane_id)
 {
 
-	assert(!opcode.addr64);
-	assert(!opcode.slc);
-	assert(!opcode.tfe);
-	assert(!opcode.lds);
+	assert(!OPCODE.addr64);
+	assert(!OPCODE.slc);
+	assert(!OPCODE.tfe);
+	assert(!OPCODE.lds);
 
 	BufferDescriptor buffer_descriptor;
 	Register value;
@@ -235,32 +241,32 @@ void InstructionVMUBUF::V_BUFFER_STORE_DWORD(WarpState *item, uint32_t lane_id)
 
 	int bytes_to_write = 4;
 
-	if (opcode.glc)
+	if (OPCODE.glc)
 	{
 		item->SetVectorMemoryGlobalCoherency(true); // FIXME redundant
 	}
 
 	// srsrc is in units of 4 registers
-	ReadBufferResource(opcode.srsrc * 4, buffer_descriptor);
+	ReadBufferResource(OPCODE.srsrc * 4, buffer_descriptor);
 
 	unsigned base = buffer_descriptor.base_addr;
-	unsigned mem_offset = ReadSReg(opcode.soffset);
-	unsigned inst_offset = opcode.offset;
+	unsigned mem_offset = ReadSReg(OPCODE.soffset);
+	unsigned inst_offset = OPCODE.offset;
 	unsigned stride = buffer_descriptor.stride;
 
 	// Table 8.3 from SI ISA
-	if (!opcode.idxen && opcode.offen)
+	if (!OPCODE.idxen && OPCODE.offen)
 	{
-		off_vgpr = ReadVReg(opcode.vaddr, lane_id);
+		off_vgpr = ReadVReg(OPCODE.vaddr, lane_id);
 	}
-	else if (opcode.idxen && !opcode.offen)
+	else if (OPCODE.idxen && !OPCODE.offen)
 	{
-		idx_vgpr = ReadVReg(opcode.vaddr, lane_id);
+		idx_vgpr = ReadVReg(OPCODE.vaddr, lane_id);
 	}
-	else if (opcode.idxen && opcode.offen)
+	else if (OPCODE.idxen && OPCODE.offen)
 	{
-		idx_vgpr = ReadVReg(opcode.vaddr, lane_id);
-		off_vgpr = ReadVReg(opcode.vaddr + 1, lane_id);
+		idx_vgpr = ReadVReg(OPCODE.vaddr, lane_id);
+		off_vgpr = ReadVReg(OPCODE.vaddr + 1, lane_id);
 	}
 
 	/* It wouldn't make sense to have a value for idxen without
@@ -271,7 +277,7 @@ void InstructionVMUBUF::V_BUFFER_STORE_DWORD(WarpState *item, uint32_t lane_id)
 	unsigned addr = base + mem_offset + inst_offset + off_vgpr +
 		stride * (idx_vgpr + lane_id);
 
-	value.as_int = ReadVReg(opcode.vdata, lane_id);
+	value.as_int = ReadVReg(OPCODE.vdata, lane_id);
 
 	WriteVMEM(addr, bytes_to_write, (char *)&value);
 
@@ -282,17 +288,17 @@ void InstructionVMUBUF::V_BUFFER_STORE_DWORD(WarpState *item, uint32_t lane_id)
 	/*if (Emulator::isa_debug)
 	{
 		Emulator::isa_debug << misc::fmt("t%d: (%u)<=V%u(%d) ", id,
-			addr, opcode.vdata, value.as_int);
+			addr, OPCODE.vdata, value.as_int);
 	}*/
 }
 
-void InstructionVMUBUF::V_BUFFER_ATOMIC_ADD(WarpState *item, uint32_t lane_id)
+void INST::V_BUFFER_ATOMIC_ADD(WarpState *item, uint32_t lane_id)
 {
 
-	assert(!opcode.addr64);
-	assert(!opcode.slc);
-	assert(!opcode.tfe);
-	assert(!opcode.lds);
+	assert(!OPCODE.addr64);
+	assert(!OPCODE.slc);
+	assert(!OPCODE.tfe);
+	assert(!OPCODE.lds);
 
 	BufferDescriptor buffer_descriptor;
 	Register value;
@@ -304,7 +310,7 @@ void InstructionVMUBUF::V_BUFFER_ATOMIC_ADD(WarpState *item, uint32_t lane_id)
 	int bytes_to_read = 4;
 	int bytes_to_write = 4;
 
-	if (opcode.glc)
+	if (OPCODE.glc)
 	{
 		item->SetVectorMemoryGlobalCoherency(true);
 	}
@@ -317,26 +323,26 @@ void InstructionVMUBUF::V_BUFFER_ATOMIC_ADD(WarpState *item, uint32_t lane_id)
 	}
 
 	// srsrc is in units of 4 registers
-	ReadBufferResource(opcode.srsrc * 4, buffer_descriptor);
+	ReadBufferResource(OPCODE.srsrc * 4, buffer_descriptor);
 
 	unsigned base = buffer_descriptor.base_addr;
-	unsigned mem_offset = ReadSReg(opcode.soffset);
-	unsigned inst_offset = opcode.offset;
+	unsigned mem_offset = ReadSReg(OPCODE.soffset);
+	unsigned inst_offset = OPCODE.offset;
 	unsigned stride = buffer_descriptor.stride;
 
 	// Table 8.3 from SI ISA
-	if (!opcode.idxen && opcode.offen)
+	if (!OPCODE.idxen && OPCODE.offen)
 	{
-		off_vgpr = ReadVReg(opcode.vaddr, lane_id);
+		off_vgpr = ReadVReg(OPCODE.vaddr, lane_id);
 	}
-	else if (opcode.idxen && !opcode.offen)
+	else if (OPCODE.idxen && !OPCODE.offen)
 	{
-		idx_vgpr = ReadVReg(opcode.vaddr, lane_id);
+		idx_vgpr = ReadVReg(OPCODE.vaddr, lane_id);
 	}
-	else if (opcode.idxen && opcode.offen)
+	else if (OPCODE.idxen && OPCODE.offen)
 	{
-		idx_vgpr = ReadVReg(opcode.vaddr, lane_id);
-		off_vgpr = ReadVReg(opcode.vaddr + 1, lane_id);
+		idx_vgpr = ReadVReg(OPCODE.vaddr, lane_id);
+		off_vgpr = ReadVReg(OPCODE.vaddr + 1, lane_id);
 	}
 
 	/* It wouldn't make sense to have a value for idxen without
@@ -352,16 +358,16 @@ void InstructionVMUBUF::V_BUFFER_ATOMIC_ADD(WarpState *item, uint32_t lane_id)
 	ReadVMEM(addr, bytes_to_read, prev_value.as_byte);
 
 	// Read value to add to existing value from a register
-	value.as_int = ReadVReg(opcode.vdata, lane_id);
+	value.as_int = ReadVReg(OPCODE.vdata, lane_id);
 
 	// Compute and store the updated value
 	value.as_int += prev_value.as_int;
 	WriteVMEM(addr, bytes_to_write, (char *)&value);
 
 	// If glc bit set, return the previous value in a register
-	if (opcode.glc)
+	if (OPCODE.glc)
 	{
-		WriteVReg(opcode.vdata, prev_value.as_uint, lane_id);
+		WriteVReg(OPCODE.vdata, prev_value.as_uint, lane_id);
 	}
 
 	// Record last memory access for the detailed simulator.
@@ -372,7 +378,7 @@ void InstructionVMUBUF::V_BUFFER_ATOMIC_ADD(WarpState *item, uint32_t lane_id)
 	if (Emulator::isa_debug)
 	{
 		Emulator::isa_debug << misc::fmt("t%d: V%u<=(%u)(%d) ", id,
-			opcode.vdata, addr, value.as_int);
+			OPCODE.vdata, addr, value.as_int);
 	}*/
 }
 

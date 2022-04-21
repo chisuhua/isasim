@@ -142,6 +142,9 @@ ThreadBlock::ThreadBlock(libcuda::gpgpu_t *gpu, KernelInfo* kernel, libcuda::gpg
 void ThreadBlock::executeInstruction(shared_ptr<Instruction> inst, unsigned warpId) {
   active_mask_t active_mask = m_Warp[warpId]->get_simt_active_mask();
   bool leading_thread = true;
+  if (libcuda::g_debug_execution > 1) {
+    inst->dumpExecBegin(m_Warp[warpId]->m_warp_state);
+  }
   // m_Warp[warpId]->m_warp_state->setActiveMask(active_mask);
   for (unsigned t = 0; t < m_warp_size; t++) {
     if (active_mask.test(t)) {
@@ -161,8 +164,8 @@ void ThreadBlock::executeInstruction(shared_ptr<Instruction> inst, unsigned warp
     }
   }
   if (libcuda::g_debug_execution > 1) {
-    m_Warp[warpId]->m_warp_state->printSreg();
-    m_Warp[warpId]->m_warp_state->printVreg();
+    inst->dumpExecEnd(m_Warp[warpId]->m_warp_state);
+    m_Warp[warpId]->m_warp_state->flush();
   }
 }
 
@@ -266,12 +269,37 @@ void ThreadBlock::initializeCTA(unsigned ctaid_cp) {
     ctaLiveThreads++;
   }
 
-  for (int k = 0; k < m_warp_count; k++) createWarp(k);
 
   uint32_t sid = 0;
   char buf[512];
   snprintf(buf, 512, "shared_%u", sid);
   m_shared_mem = new libcuda::memory_space_impl<16 * 1024>(buf, 4);
+
+  int32_t block_idx_x_vreg_num = -1;
+  int32_t block_idx_y_vreg_num = -1;
+  int32_t block_idx_z_vreg_num = -1;
+
+  if ((m_kernel->kernel_ctrl() >> KERNEL_CTRL_BIT_BLOCK_IDX_X) & 0x1) {
+    block_idx_x_vreg_num = 0;
+  }
+  if ((m_kernel->kernel_ctrl() >> KERNEL_CTRL_BIT_BLOCK_IDX_Y) & 0x1) {
+    block_idx_y_vreg_num = block_idx_x_vreg_num + 1;
+  }
+  if ((m_kernel->kernel_ctrl() >> KERNEL_CTRL_BIT_BLOCK_IDX_Y) & 0x1) {
+    block_idx_z_vreg_num = block_idx_y_vreg_num + 1;
+  }
+
+  uint32_t x = m_cta_info->get_cta_id().x;
+  uint32_t y = m_cta_info->get_cta_id().y;
+  uint32_t z = m_cta_info->get_cta_id().z;
+  if (block_idx_x_vreg_num >= 0)
+      m_shared_mem->write(block_idx_x_vreg_num, 4, &x, nullptr, nullptr);
+  if (block_idx_y_vreg_num >= 0)
+      m_shared_mem->write(block_idx_x_vreg_num, 4, &y, nullptr, nullptr);
+  if (block_idx_z_vreg_num >= 0)
+      m_shared_mem->write(block_idx_x_vreg_num, 4, &z, nullptr, nullptr);
+
+  for (int k = 0; k < m_warp_count; k++) createWarp(k);
 }
 
 unsigned ThreadBlock::createThread(KernelInfo &kernel,
@@ -439,24 +467,12 @@ void ThreadBlock::createWarp(unsigned warpId) {
   unsigned liveThreadsCount = 0;
   initialMask.set();
 
-  int32_t block_idx_x_vreg_num = -1;
-  int32_t block_idx_y_vreg_num = -1;
-  int32_t block_idx_z_vreg_num = -1;
   int32_t thread_idx_x_vreg_num = -1;
   int32_t thread_idx_y_vreg_num = -1;
   int32_t thread_idx_z_vreg_num = -1;
 
-  if ((m_kernel->kernel_ctrl() >> KERNEL_CTRL_BIT_BLOCK_IDX_X) & 0x1) {
-    block_idx_x_vreg_num = 0;
-  }
-  if ((m_kernel->kernel_ctrl() >> KERNEL_CTRL_BIT_BLOCK_IDX_Y) & 0x1) {
-    block_idx_y_vreg_num = block_idx_x_vreg_num + 1;
-  }
-  if ((m_kernel->kernel_ctrl() >> KERNEL_CTRL_BIT_BLOCK_IDX_Y) & 0x1) {
-    block_idx_z_vreg_num = block_idx_y_vreg_num + 1;
-  }
   if ((m_kernel->kernel_ctrl() >> KERNEL_CTRL_BIT_THREAD_IDX_X) & 0x1) {
-    thread_idx_x_vreg_num = block_idx_z_vreg_num + 1;
+    thread_idx_x_vreg_num = 0;
   }
   if ((m_kernel->kernel_ctrl() >> KERNEL_CTRL_BIT_THREAD_IDX_Y) & 0x1) {
     thread_idx_y_vreg_num = thread_idx_x_vreg_num + 1;
@@ -473,15 +489,6 @@ void ThreadBlock::createWarp(unsigned warpId) {
     else {
       m_thread[i]->set_laneid(lane_id);
       liveThreadsCount++;
-      if (block_idx_x_vreg_num >= 0)
-          warp_state->setVreg(block_idx_x_vreg_num + THREAD_REG_BASE,
-                  m_cta_info->get_cta_id().x, lane_id);
-      if (block_idx_y_vreg_num >= 0)
-          warp_state->setVreg(block_idx_y_vreg_num + THREAD_REG_BASE,
-                  m_cta_info->get_cta_id().y, lane_id);
-      if (block_idx_z_vreg_num >= 0)
-          warp_state->setVreg(block_idx_z_vreg_num + THREAD_REG_BASE,
-                  m_cta_info->get_cta_id().z, lane_id);
       if (thread_idx_x_vreg_num >= 0)
           warp_state->setVreg(thread_idx_x_vreg_num + THREAD_REG_BASE,
                   m_thread[i]->get_tid().x, lane_id);
@@ -493,6 +500,13 @@ void ThreadBlock::createWarp(unsigned warpId) {
                   m_thread[i]->get_tid().z, lane_id);
     }
   }
+
+  std::string dump_file = "instr_dump_";
+  m_Warp[warpId]->m_warp_state->initDump(
+          dump_file + "_tb_" + std::to_string(m_cta_info->get_cta_id().x) +
+          "_" + std::to_string(m_cta_info->get_cta_id().y) +
+          "_" + std::to_string(m_cta_info->get_cta_id().z) +
+          "_warp_" + std::to_string(warpId) + ".log");
 
   m_Warp[warpId]->launch(m_thread[warpId * m_warp_size]->get_pc(), initialMask);
 

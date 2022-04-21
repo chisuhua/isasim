@@ -24,15 +24,19 @@ void WarpState::init() {
 #endif
 }
 
+void WarpState::initDump(std::string filename) {
+    m_dump.open(filename, std::ios::in | std::ios::out | std::ios::trunc);
+    if (!m_dump.is_open()) {
+        assert(false || "fail to open file");
+    }
+}
+
 uint32_t WarpState::getVreg(uint32_t vreg, uint32_t lane_id)
 {
 	assert(vreg >= 0);
 	assert(vreg < m_vreg_num);
     assert(lane_id < m_warp_size);
 
-    if (vreg > (KERNEL_CONST_REG_BASE_KERNEL_VIEW - m_kernel_const_reg_num)) {
-        return getConst(KERNEL_CONST_REG_BASE + (KERNEL_CONST_REG_BASE_KERNEL_VIEW - vreg));
-    }
 	return m_vreg[vreg*m_warp_size + lane_id];
 }
 
@@ -64,9 +68,14 @@ void WarpState::setBitmaskSreg(uint32_t sreg, uint32_t value, uint32_t lane_id)
 	setSreg(sreg, new_field);
 }
 
-uint32_t WarpState::getSreg(uint32_t sreg) const
+uint32_t WarpState::getSreg(uint32_t sreg)
 {
 	uint32_t value;
+
+    if (sreg < m_kernel_const_reg_num) {
+        value = getConst(sreg);
+        return value;
+    }
 
 	assert(sreg >= 0);
 	assert(sreg != 104);
@@ -124,7 +133,7 @@ void WarpState::setSreg(uint32_t sreg, uint32_t value)
 	}
 #endif
 }
-
+/*
 void WarpState::printSreg() {
     printf("sreg:");
     for (uint32_t i=0 ; i < 32; i++) {
@@ -132,23 +141,48 @@ void WarpState::printSreg() {
     }
     printf("\n");
 }
+*/
 
-void WarpState::printSreg(uint32_t sreg) {
-    printf("sreg\%d:\%x\n", getSreg(sreg));
+void WarpState::dumpSreg(std::stringstream &ss, uint32_t sreg) {
+    ss << std::hex << "0x" << std::setw(8) << std::setfill('0') << getSreg(sreg);
 }
-
+/*
 void WarpState::printVreg() {
     for (uint32_t i=0 ; i < 32; i++) {
         printVreg(i);
     }
 }
+*/
 
-void WarpState::printVreg(uint32_t vreg) {
-    printf("vreg\%d:", vreg);
-    for (uint32_t i=0 ; i < 32; i++) {
-        printf(" \%x", getVreg(vreg, i));
+void WarpState::dumpVreg(std::stringstream &ss, uint32_t vreg, uint32_t reg_num, uint32_t data_size) {
+    for (uint32_t i=0 ; i < reg_num; i++) {
+        for (uint32_t w=0; w < m_warp_size; w++) {
+            if (w == 16) {
+                ss << "         ";
+            }
+            ss << "0x" << std::setw(data_size) << std::setfill('0') << getVreg(vreg + i, w);
+            if ((w + 1) % 16 == 0) {
+                ss << "\n";
+            } else {
+                ss << " ";
+            }
+        }
     }
-    printf("\n");
+}
+
+void WarpState::dumpAddr(std::stringstream &ss, std::vector<uint64_t> &addr, uint32_t tmsk) {
+    ss << std::hex;
+    for (uint32_t w=0; w < m_warp_size; w++) {
+        if (w == 16) {
+            ss << "         ";
+        }
+        ss << "0x" << std::setw(12) << std::setfill('0') << addr[w];
+        if ((w + 1) % 16 == 0) {
+            ss << "\n";
+        } else {
+            ss << " ";
+        }
+    }
 }
 
 void WarpState::setDmem(uint32_t addr, uint32_t length, char* value) {
@@ -180,7 +214,7 @@ uint64_t WarpState::setupAddrSpace(uint64_t addr, mem_space_t &space) {
     space = mem_space_t::global_space;
     return addr;
 };
-
+#if 0
 // FIXME block const will setup in shared memory, remove below ugly code
 MemoryPointer WarpState::getVBaseAddr(uint32_t vreg, uint32_t lane_id) {
 	MemoryPointer mem_ptr;
@@ -190,13 +224,14 @@ MemoryPointer WarpState::getVBaseAddr(uint32_t vreg, uint32_t lane_id) {
         mem_ptr.addr = getConst(0);
     } else if (vreg == LOCAL_MEM_PTR) {
         getSregMemPtr(0, mem_ptr);
-    } else if (vreg > (KERNEL_CONST_REG_BASE_KERNEL_VIEW - m_kernel_const_reg_num)) {
-        mem_ptr.addr = getConst(KERNEL_CONST_REG_BASE + (KERNEL_CONST_REG_BASE_KERNEL_VIEW - vreg));
+    } else if (vreg < m_kernel_const_reg_num) {
+        mem_ptr.addr = getConst(vreg);
     } else {
         getVregMemPtr(vreg, mem_ptr, lane_id);
     }
     return mem_ptr;
 }
+#endif
 
 MemoryPointer WarpState::getDBaseAddr(uint32_t vreg, uint32_t lane_id) {
 }

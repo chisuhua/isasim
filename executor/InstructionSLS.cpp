@@ -1,36 +1,43 @@
 #include "inc/Instruction.h"
 #include "inc/InstructionCommon.h"
 
-#define opcode bytes.SLS
+#define OPCODE bytes.SLS
+#define INST InstructionSLS
 
-void InstructionSLS::Decode(uint64_t _opcode) {
+void INST::Decode(uint64_t _opcode) {
     bytes.dword = _opcode;
-    info.op = opcode.op;
+    info.op = OPCODE.op;
     bytes.word[1] = 0;
 	m_size = 4;
     m_is_warp_op = true;
 }
 
-void InstructionSLS::print() {
+void INST::print() {
     printf("Instruction: %s(%x)\n", opcode_str[info.op].c_str(), info.op);
 }
 
-void InstructionSLS::S_LOAD_DWORD(WarpState *item, uint32_t lane_id)
+void INST::dumpExecBegin(WarpState *w) {
+}
+
+void INST::dumpExecEnd(WarpState *w) {
+}
+
+void INST::S_LOAD_DWORD(WarpState *item, uint32_t lane_id)
 {
 	// Record access
 	// GetWarp->SetScalarMemoryRead(true);
     item->m_smem_read_counter++;
 
-	assert(opcode.imm);
+	assert(OPCODE.imm);
 
-	int sbase = opcode.sbase << 1;
+	int sbase = OPCODE.sbase << 1;
 
 	MemoryPointer memory_pointer;
 	item->getSregMemPtr(sbase, memory_pointer);
 
 	// Calculate effective address
 	unsigned m_base = memory_pointer.addr;
-	unsigned m_offset = opcode.offset * 4;
+	unsigned m_offset = OPCODE.offset * 4;
 	unsigned m_addr = m_base + m_offset;
 
 	assert(!(m_addr & 0x3));
@@ -41,18 +48,18 @@ void InstructionSLS::S_LOAD_DWORD(WarpState *item, uint32_t lane_id)
 		// Read value from global memory
 		ReadSMEM(m_addr + i * 4, 4, (char *)&value[i]);
 		// Store the data in the destination register
-		WriteSReg(opcode.sdst + i, value[i].as_uint);
+		WriteSReg(OPCODE.sdst + i, value[i].as_uint);
 	}
 
 	// Debug
     /*
 	if (Emulator::isa_debug)
 	{
-		Emulator::isa_debug << misc::fmt("S[%u,%u] <= (addr %u): ", opcode.sdst, opcode.sdst+3,
+		Emulator::isa_debug << misc::fmt("S[%u,%u] <= (addr %u): ", OPCODE.sdst, OPCODE.sdst+3,
 			m_addr);
 		for (int i = 0; i < 2; i++)
 		{
-			Emulator::isa_debug << misc::fmt("S%u<=(%u,%gf) ", opcode.sdst + i,
+			Emulator::isa_debug << misc::fmt("S%u<=(%u,%gf) ", OPCODE.sdst + i,
 				value[i].as_uint, value[i].as_float);
 		}
 	}*/
@@ -62,22 +69,22 @@ void InstructionSLS::S_LOAD_DWORD(WarpState *item, uint32_t lane_id)
 	item->m_global_memory_access_size = 4 * 2;
 }
 
-void InstructionSLS::S_LOAD_DWORDX2(WarpState *item, uint32_t lane_id)
+void INST::S_LOAD_DWORDX2(WarpState *item, uint32_t lane_id)
 {
 	// Record access
 	// GetWarp->SetScalarMemoryRead(true);
     item->m_smem_read_counter++;
 
-	assert(opcode.imm);
+	assert(OPCODE.imm);
 
-	int sbase = opcode.sbase << 1;
+	int sbase = OPCODE.sbase << 1;
 
 	MemoryPointer memory_pointer;
 	item->getSregMemPtr(sbase, memory_pointer);
 
 	// Calculate effective address
 	unsigned m_base = memory_pointer.addr;
-	unsigned m_offset = opcode.offset * 4;
+	unsigned m_offset = OPCODE.offset * 4;
 	unsigned m_addr = m_base + m_offset;
 
 	assert(!(m_addr & 0x3));
@@ -88,18 +95,18 @@ void InstructionSLS::S_LOAD_DWORDX2(WarpState *item, uint32_t lane_id)
 		// Read value from global memory
 		ReadSMEM(m_addr + i * 4, 4, (char *)&value[i]);
 		// Store the data in the destination register
-		WriteSReg(opcode.sdst + i, value[i].as_uint);
+		WriteSReg(OPCODE.sdst + i, value[i].as_uint);
 	}
 
 	// Debug
     /*
 	if (Emulator::isa_debug)
 	{
-		Emulator::isa_debug << misc::fmt("S[%u,%u] <= (addr %u): ", opcode.sdst, opcode.sdst+3,
+		Emulator::isa_debug << misc::fmt("S[%u,%u] <= (addr %u): ", OPCODE.sdst, OPCODE.sdst+3,
 			m_addr);
 		for (int i = 0; i < 2; i++)
 		{
-			Emulator::isa_debug << misc::fmt("S%u<=(%u,%gf) ", opcode.sdst + i,
+			Emulator::isa_debug << misc::fmt("S%u<=(%u,%gf) ", OPCODE.sdst + i,
 				value[i].as_uint, value[i].as_float);
 		}
 	}*/
@@ -109,22 +116,22 @@ void InstructionSLS::S_LOAD_DWORDX2(WarpState *item, uint32_t lane_id)
 	item->m_global_memory_access_size = 4 * 2;
 }
 
-void InstructionSLS::S_LOAD_DWORDX4(WarpState *item, uint32_t lane_id)
+void INST::S_LOAD_DWORDX4(WarpState *item, uint32_t lane_id)
 {
 	// Record access
 	// GetWarp->SetScalarMemoryRead(true);
     item->m_smem_read_counter++;
 
-	assert(opcode.imm);
+	assert(OPCODE.imm);
 
-	int sbase = opcode.sbase << 1;
+	int sbase = OPCODE.sbase << 1;
 
 	MemoryPointer memory_pointer;
 	item->getSregMemPtr(sbase, memory_pointer);
 
 	// Calculate effective address
 	unsigned m_base = memory_pointer.addr;
-	unsigned m_offset = opcode.offset * 4;
+	unsigned m_offset = OPCODE.offset * 4;
 	unsigned m_addr = m_base + m_offset;
 
 	assert(!(m_addr & 0x3));
@@ -135,18 +142,18 @@ void InstructionSLS::S_LOAD_DWORDX4(WarpState *item, uint32_t lane_id)
 		// Read value from global memory
 		ReadSMEM(m_addr + i * 4, 4, (char *)&value[i]);
 		// Store the data in the destination register
-		WriteSReg(opcode.sdst + i, value[i].as_uint);
+		WriteSReg(OPCODE.sdst + i, value[i].as_uint);
 	}
 
 	// Debug
     /*
 	if (Emulator::isa_debug)
 	{
-		Emulator::isa_debug << misc::fmt("S[%u,%u] <= (addr %u): ", opcode.sdst, opcode.sdst+3,
+		Emulator::isa_debug << misc::fmt("S[%u,%u] <= (addr %u): ", OPCODE.sdst, OPCODE.sdst+3,
 			m_addr);
 		for (int i = 0; i < 4; i++)
 		{
-			Emulator::isa_debug << misc::fmt("S%u<=(%u,%gf) ", opcode.sdst + i,
+			Emulator::isa_debug << misc::fmt("S%u<=(%u,%gf) ", OPCODE.sdst + i,
 				value[i].as_uint, value[i].as_float);
 		}
 	}*/
@@ -156,22 +163,22 @@ void InstructionSLS::S_LOAD_DWORDX4(WarpState *item, uint32_t lane_id)
 	item->m_global_memory_access_size = 4 * 4;
 }
 
-void InstructionSLS::S_LOAD_DWORDX8(WarpState *item, uint32_t lane_id)
+void INST::S_LOAD_DWORDX8(WarpState *item, uint32_t lane_id)
 {
 	// Record access
 	// GetWarp->SetScalarMemoryRead(true);
     item->m_smem_read_counter++;
 
-	assert(opcode.imm);
+	assert(OPCODE.imm);
 
-	int sbase = opcode.sbase << 1;
+	int sbase = OPCODE.sbase << 1;
 
 	MemoryPointer memory_pointer;
 	item->getSregMemPtr(sbase, memory_pointer);
 
 	// Calculate effective address
 	unsigned m_base = memory_pointer.addr;
-	unsigned m_offset = opcode.offset * 4;
+	unsigned m_offset = OPCODE.offset * 4;
 	unsigned m_addr = m_base + m_offset;
 
 	assert(!(m_addr & 0x3));
@@ -182,18 +189,18 @@ void InstructionSLS::S_LOAD_DWORDX8(WarpState *item, uint32_t lane_id)
 		// Read value from global memory
 		ReadSMEM(m_addr + i * 4, 4, (char *)&value[i]);
 		// Store the data in the destination register
-		WriteSReg(opcode.sdst + i, value[i].as_uint);
+		WriteSReg(OPCODE.sdst + i, value[i].as_uint);
 	}
 
 	// Debug
     /*
 	if (Emulator::isa_debug)
 	{
-		Emulator::isa_debug << misc::fmt("S[%u,%u] <= (addr %u): ", opcode.sdst, opcode.sdst+3,
+		Emulator::isa_debug << misc::fmt("S[%u,%u] <= (addr %u): ", OPCODE.sdst, OPCODE.sdst+3,
 			m_addr);
 		for (int i = 0; i < 8; i++)
 		{
-			Emulator::isa_debug << misc::fmt("S%u<=(%u,%gf) ", opcode.sdst + i,
+			Emulator::isa_debug << misc::fmt("S%u<=(%u,%gf) ", OPCODE.sdst + i,
 				value[i].as_uint, value[i].as_float);
 		}
 	}*/
@@ -203,22 +210,22 @@ void InstructionSLS::S_LOAD_DWORDX8(WarpState *item, uint32_t lane_id)
 	item->m_global_memory_access_size = 4 * 8;
 }
 
-void InstructionSLS::S_LOAD_DWORDX16(WarpState *item, uint32_t lane_id)
+void INST::S_LOAD_DWORDX16(WarpState *item, uint32_t lane_id)
 {
 	// Record access
 	// GetWarp->SetScalarMemoryRead(true);
     item->m_smem_read_counter++;
 
-	assert(opcode.imm);
+	assert(OPCODE.imm);
 
-	int sbase = opcode.sbase << 1;
+	int sbase = OPCODE.sbase << 1;
 
 	MemoryPointer memory_pointer;
 	item->getSregMemPtr(sbase, memory_pointer);
 
 	// Calculate effective address
 	unsigned m_base = memory_pointer.addr;
-	unsigned m_offset = opcode.offset * 4;
+	unsigned m_offset = OPCODE.offset * 4;
 	unsigned m_addr = m_base + m_offset;
 
 	assert(!(m_addr & 0x3));
@@ -229,18 +236,18 @@ void InstructionSLS::S_LOAD_DWORDX16(WarpState *item, uint32_t lane_id)
 		// Read value from global memory
 		ReadSMEM(m_addr + i * 4, 4, (char *)&value[i]);
 		// Store the data in the destination register
-		WriteSReg(opcode.sdst + i, value[i].as_uint);
+		WriteSReg(OPCODE.sdst + i, value[i].as_uint);
 	}
 
 	// Debug
     /*
 	if (Emulator::isa_debug)
 	{
-		Emulator::isa_debug << misc::fmt("S[%u,%u] <= (addr %u): ", opcode.sdst, opcode.sdst+3,
+		Emulator::isa_debug << misc::fmt("S[%u,%u] <= (addr %u): ", OPCODE.sdst, OPCODE.sdst+3,
 			m_addr);
 		for (int i = 0; i < 8; i++)
 		{
-			Emulator::isa_debug << misc::fmt("S%u<=(%u,%gf) ", opcode.sdst + i,
+			Emulator::isa_debug << misc::fmt("S%u<=(%u,%gf) ", OPCODE.sdst + i,
 				value[i].as_uint, value[i].as_float);
 		}
 	}*/

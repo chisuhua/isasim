@@ -71,13 +71,18 @@ void IsaSim::launch(DispatchInfo *disp_info, unsigned kernel_uid, bool openCL) {
   // local_mem_addr
   // and when each cta launch it will setup block_idx in warp sreg
   // it will be access as icache
-  kernel->state()->setConstReg(0, kernel->state()->getParamAddr());
-  kernel->state()->setConstReg(1, kernel->state()->getLocalAddr());
+  // kernel->state()->setConstReg(1, kernel->state()->getLocalAddr());
 
   // FIXME since it in icache, it can setup in driver side or cp
   // fill kernel level const regs
   uint32_t const_reg_num = KERNEL_CONST_REG_BASE ;
   // below behavior is same as coasm, which kernel access reg in same way
+  if ((kernel_ctrl >> KERNEL_CTRL_BIT_PARAM_BASE) & 0x1) {
+      kernel->state()->setConstReg(0, kernel->state()->getParamAddr());
+      // how to pase reg size from kernel_ctrl
+      const_reg_num += 2;
+  }
+
   if ((kernel_ctrl >> KERNEL_CTRL_BIT_GRID_DIM_X) & 0x1) {
       kernel->state()->setConstReg(const_reg_num, kernel->get_grid_dim().x);
       const_reg_num++;

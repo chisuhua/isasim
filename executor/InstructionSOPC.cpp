@@ -1,11 +1,12 @@
 #include "inc/Instruction.h"
 #include "inc/InstructionCommon.h"
 
-#define opcode bytes.SOPC
+#define OPCODE bytes.SOPC
+#define INST InstructionSOPC
 
-void InstructionSOPC::Decode(uint64_t _opcode) {
+void INST::Decode(uint64_t _opcode) {
     bytes.dword = _opcode;
-    info.op = opcode.op;
+    info.op = OPCODE.op;
     m_is_warp_op = true;
 	/* Only one source field may use a literal constant,
 	 * which is indicated by 0xFF. */
@@ -19,28 +20,34 @@ void InstructionSOPC::Decode(uint64_t _opcode) {
 
 }
 
-void InstructionSOPC::print() {
+void INST::print() {
     printf("Instruction: %s(%x)\n", opcode_str[info.op].c_str(), info.op);
+}
+
+void INST::dumpExecBegin(WarpState *w) {
+}
+
+void INST::dumpExecEnd(WarpState *w) {
 }
 
 
 // scc = (S0.i == S1.i).
-void InstructionSOPC::S_CMP_EQ_I32(WarpState *item, uint32_t lane_id)
+void INST::S_CMP_EQ_I32(WarpState *item, uint32_t lane_id)
 {
 	Register s0;
 	Register s1;
 	Register result;
 
 	// Load operands from registers or as a literal constant.
-	assert(!(opcode.ssrc0 == 0xFF && opcode.ssrc1 == 0xFF));
-	if (opcode.ssrc0 == 0xFF)
-		s0.as_uint = opcode.lit_const;
+	assert(!(OPCODE.ssrc0 == 0xFF && OPCODE.ssrc1 == 0xFF));
+	if (OPCODE.ssrc0 == 0xFF)
+		s0.as_uint = OPCODE.lit_const;
 	else
-		s0.as_uint = ReadSReg(opcode.ssrc0);
-	if (opcode.ssrc1 == 0xFF)
-		s1.as_uint = opcode.lit_const;
+		s0.as_uint = ReadSReg(OPCODE.ssrc0);
+	if (OPCODE.ssrc1 == 0xFF)
+		s1.as_uint = OPCODE.lit_const;
 	else
-		s1.as_uint = ReadSReg(opcode.ssrc1);
+		s1.as_uint = ReadSReg(OPCODE.ssrc1);
 
 	// Compare the operands.
 	result.as_uint = (s0.as_int == s1.as_int);
@@ -54,22 +61,22 @@ void InstructionSOPC::S_CMP_EQ_I32(WarpState *item, uint32_t lane_id)
 }
 
 // scc = (S0.i > S1.i).
-void InstructionSOPC::S_CMP_GT_I32(WarpState *item, uint32_t lane_id)
+void INST::S_CMP_GT_I32(WarpState *item, uint32_t lane_id)
 {
 	Register s0;
 	Register s1;
 	Register result;
 
 	// Load operands from registers or as a literal constant.
-	assert(!(opcode.ssrc0 == 0xFF && opcode.ssrc1 == 0xFF));
-	if (opcode.ssrc0 == 0xFF)
-		s0.as_uint = opcode.lit_const;
+	assert(!(OPCODE.ssrc0 == 0xFF && OPCODE.ssrc1 == 0xFF));
+	if (OPCODE.ssrc0 == 0xFF)
+		s0.as_uint = OPCODE.lit_const;
 	else
-		s0.as_uint = ReadSReg(opcode.ssrc0);
-	if (opcode.ssrc1 == 0xFF)
-		s1.as_uint = opcode.lit_const;
+		s0.as_uint = ReadSReg(OPCODE.ssrc0);
+	if (OPCODE.ssrc1 == 0xFF)
+		s1.as_uint = OPCODE.lit_const;
 	else
-		s1.as_uint = ReadSReg(opcode.ssrc1);
+		s1.as_uint = ReadSReg(OPCODE.ssrc1);
 
 	// Compare the operands.
 	result.as_uint = (s0.as_int > s1.as_int);
@@ -84,22 +91,22 @@ void InstructionSOPC::S_CMP_GT_I32(WarpState *item, uint32_t lane_id)
 }
 
 // scc = (S0.i >= S1.i).
-void InstructionSOPC::S_CMP_GE_I32(WarpState *item, uint32_t lane_id)
+void INST::S_CMP_GE_I32(WarpState *item, uint32_t lane_id)
 {
 	Register s0;
 	Register s1;
 	Register result;
 
 	// Load operands from registers or as a literal constant.
-	assert(!(opcode.ssrc0 == 0xFF && opcode.ssrc1 == 0xFF));
-	if (opcode.ssrc0 == 0xFF)
-		s0.as_uint = opcode.lit_const;
+	assert(!(OPCODE.ssrc0 == 0xFF && OPCODE.ssrc1 == 0xFF));
+	if (OPCODE.ssrc0 == 0xFF)
+		s0.as_uint = OPCODE.lit_const;
 	else
-		s0.as_uint = ReadSReg(opcode.ssrc0);
-	if (opcode.ssrc1 == 0xFF)
-		s1.as_uint = opcode.lit_const;
+		s0.as_uint = ReadSReg(OPCODE.ssrc0);
+	if (OPCODE.ssrc1 == 0xFF)
+		s1.as_uint = OPCODE.lit_const;
 	else
-		s1.as_uint = ReadSReg(opcode.ssrc1);
+		s1.as_uint = ReadSReg(OPCODE.ssrc1);
 
 	// Compare the operands.
 	result.as_uint = (s0.as_int >= s1.as_int);
@@ -113,22 +120,22 @@ void InstructionSOPC::S_CMP_GE_I32(WarpState *item, uint32_t lane_id)
 }
 
 // scc = (S0.i < S1.i).
-void InstructionSOPC::S_CMP_LT_I32(WarpState *item, uint32_t lane_id)
+void INST::S_CMP_LT_I32(WarpState *item, uint32_t lane_id)
 {
 	Register s0;
 	Register s1;
 	Register result;
 
 	// Load operands from registers or as a literal constant.
-	assert(!(opcode.ssrc0 == 0xFF && opcode.ssrc1 == 0xFF));
-	if (opcode.ssrc0 == 0xFF)
-		s0.as_uint = opcode.lit_const;
+	assert(!(OPCODE.ssrc0 == 0xFF && OPCODE.ssrc1 == 0xFF));
+	if (OPCODE.ssrc0 == 0xFF)
+		s0.as_uint = OPCODE.lit_const;
 	else
-		s0.as_uint = ReadSReg(opcode.ssrc0);
-	if (opcode.ssrc1 == 0xFF)
-		s1.as_uint = opcode.lit_const;
+		s0.as_uint = ReadSReg(OPCODE.ssrc0);
+	if (OPCODE.ssrc1 == 0xFF)
+		s1.as_uint = OPCODE.lit_const;
 	else
-		s1.as_uint = ReadSReg(opcode.ssrc1);
+		s1.as_uint = ReadSReg(OPCODE.ssrc1);
 
 	// Compare the operands.
 	result.as_uint = (s0.as_int < s1.as_int);
@@ -142,22 +149,22 @@ void InstructionSOPC::S_CMP_LT_I32(WarpState *item, uint32_t lane_id)
 }
 
 // scc = (S0.i <= S1.i).
-void InstructionSOPC::S_CMP_LE_I32(WarpState *item, uint32_t lane_id)
+void INST::S_CMP_LE_I32(WarpState *item, uint32_t lane_id)
 {
 	Register s0;
 	Register s1;
 	Register result;
 
 	// Load operands from registers or as a literal constant.
-	assert(!(opcode.ssrc0 == 0xFF && opcode.ssrc1 == 0xFF));
-	if (opcode.ssrc0 == 0xFF)
-		s0.as_uint = opcode.lit_const;
+	assert(!(OPCODE.ssrc0 == 0xFF && OPCODE.ssrc1 == 0xFF));
+	if (OPCODE.ssrc0 == 0xFF)
+		s0.as_uint = OPCODE.lit_const;
 	else
-		s0.as_uint = ReadSReg(opcode.ssrc0);
-	if (opcode.ssrc1 == 0xFF)
-		s1.as_uint = opcode.lit_const;
+		s0.as_uint = ReadSReg(OPCODE.ssrc0);
+	if (OPCODE.ssrc1 == 0xFF)
+		s1.as_uint = OPCODE.lit_const;
 	else
-		s1.as_uint = ReadSReg(opcode.ssrc1);
+		s1.as_uint = ReadSReg(OPCODE.ssrc1);
 
 	// Compare the operands.
 	result.as_uint = (s0.as_int <= s1.as_int);
@@ -171,22 +178,22 @@ void InstructionSOPC::S_CMP_LE_I32(WarpState *item, uint32_t lane_id)
 }
 
 // scc = (S0.u > S1.u).
-void InstructionSOPC::S_CMP_GT_U32(WarpState *item, uint32_t lane_id)
+void INST::S_CMP_GT_U32(WarpState *item, uint32_t lane_id)
 {
 	Register s0;
 	Register s1;
 	Register result;
 
 	// Load operands from registers or as a literal constant.
-	assert(!(opcode.ssrc0 == 0xFF && opcode.ssrc1 == 0xFF));
-	if (opcode.ssrc0 == 0xFF)
-		s0.as_uint = opcode.lit_const;
+	assert(!(OPCODE.ssrc0 == 0xFF && OPCODE.ssrc1 == 0xFF));
+	if (OPCODE.ssrc0 == 0xFF)
+		s0.as_uint = OPCODE.lit_const;
 	else
-		s0.as_uint = ReadSReg(opcode.ssrc0);
-	if (opcode.ssrc1 == 0xFF)
-		s1.as_uint = opcode.lit_const;
+		s0.as_uint = ReadSReg(OPCODE.ssrc0);
+	if (OPCODE.ssrc1 == 0xFF)
+		s1.as_uint = OPCODE.lit_const;
 	else
-		s1.as_uint = ReadSReg(opcode.ssrc1);
+		s1.as_uint = ReadSReg(OPCODE.ssrc1);
 
 	// Compare the operands.
 	result.as_uint = (s0.as_uint > s1.as_uint);
@@ -200,22 +207,22 @@ void InstructionSOPC::S_CMP_GT_U32(WarpState *item, uint32_t lane_id)
 }
 
 // scc = (S0.u >= S1.u).
-void InstructionSOPC::S_CMP_GE_U32(WarpState *item, uint32_t lane_id)
+void INST::S_CMP_GE_U32(WarpState *item, uint32_t lane_id)
 {
 	Register s0;
 	Register s1;
 	Register result;
 
 	// Load operands from registers or as a literal constant.
-	assert(!(opcode.ssrc0 == 0xFF && opcode.ssrc1 == 0xFF));
-	if (opcode.ssrc0 == 0xFF)
-		s0.as_uint = opcode.lit_const;
+	assert(!(OPCODE.ssrc0 == 0xFF && OPCODE.ssrc1 == 0xFF));
+	if (OPCODE.ssrc0 == 0xFF)
+		s0.as_uint = OPCODE.lit_const;
 	else
-		s0.as_uint = ReadSReg(opcode.ssrc0);
-	if (opcode.ssrc1 == 0xFF)
-		s1.as_uint = opcode.lit_const;
+		s0.as_uint = ReadSReg(OPCODE.ssrc0);
+	if (OPCODE.ssrc1 == 0xFF)
+		s1.as_uint = OPCODE.lit_const;
 	else
-		s1.as_uint = ReadSReg(opcode.ssrc1);
+		s1.as_uint = ReadSReg(OPCODE.ssrc1);
 
 	// Compare the operands.
 	result.as_uint = (s0.as_uint >= s1.as_uint);
@@ -229,22 +236,22 @@ void InstructionSOPC::S_CMP_GE_U32(WarpState *item, uint32_t lane_id)
 }
 
 // scc = (S0.u <= S1.u).
-void InstructionSOPC::S_CMP_LE_U32(WarpState *item, uint32_t lane_id)
+void INST::S_CMP_LE_U32(WarpState *item, uint32_t lane_id)
 {
 	Register s0;
 	Register s1;
 	Register result;
 
 	// Load operands from registers or as a literal constant.
-	assert(!(opcode.ssrc0 == 0xFF && opcode.ssrc1 == 0xFF));
-	if (opcode.ssrc0 == 0xFF)
-		s0.as_uint = opcode.lit_const;
+	assert(!(OPCODE.ssrc0 == 0xFF && OPCODE.ssrc1 == 0xFF));
+	if (OPCODE.ssrc0 == 0xFF)
+		s0.as_uint = OPCODE.lit_const;
 	else
-		s0.as_uint = ReadSReg(opcode.ssrc0);
-	if (opcode.ssrc1 == 0xFF)
-		s1.as_uint = opcode.lit_const;
+		s0.as_uint = ReadSReg(OPCODE.ssrc0);
+	if (OPCODE.ssrc1 == 0xFF)
+		s1.as_uint = OPCODE.lit_const;
 	else
-		s1.as_uint = ReadSReg(opcode.ssrc1);
+		s1.as_uint = ReadSReg(OPCODE.ssrc1);
 
 	// Compare the operands.
 	result.as_uint = (s0.as_uint <= s1.as_uint);

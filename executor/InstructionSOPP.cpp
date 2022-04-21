@@ -2,33 +2,41 @@
 #include "inc/InstructionCommon.h"
 #include "common/utils.h"
 
-#define opcode bytes.SOPP
+#define OPCODE bytes.SOPP
+#define INST InstructionSOPP
 
-void InstructionSOPP::Decode(uint64_t _opcode) {
+void INST::Decode(uint64_t _opcode) {
     bytes.dword = _opcode;
-    info.op = opcode.op;
+    info.op = OPCODE.op;
     bytes.word[1] = 0;
 	m_size = 4;
     m_is_warp_op = true;
 
-    if (opcode.op == OpcodeSOPP::S_BARRIER) {
+    if (OPCODE.op == OpcodeSOPP::S_BARRIER) {
         m_op_type = opu_op_t::BARRIER_OP;
     }
-    if (opcode.op == OpcodeSOPP::S_WAITCNT) {
+    if (OPCODE.op == OpcodeSOPP::S_WAITCNT) {
         m_op_type = opu_op_t::WAITCNT_OP;
     }
 
-    if (opcode.op == OpcodeSOPP::S_EXIT) {
+    if (OPCODE.op == OpcodeSOPP::S_EXIT) {
         m_is_warp_op = false;
     }
 }
 
-void InstructionSOPP::print() {
+void INST::print() {
     printf("Instruction: %s(%x)\n", opcode_str[info.op].c_str(), info.op);
 }
 
+void INST::dumpExecBegin(WarpState *w) {
+}
+
+void INST::dumpExecEnd(WarpState *w) {
+}
+
+
 // End the program.
-void InstructionSOPP::S_EXIT(WarpState *item, uint32_t lane_id)
+void INST::S_EXIT(WarpState *item, uint32_t lane_id)
 {
 	item->setFinished(lane_id);     // TODO s_exit make all active thread done
     // item->m_thread_done = true;
@@ -36,13 +44,13 @@ void InstructionSOPP::S_EXIT(WarpState *item, uint32_t lane_id)
 }
 
 // PC = PC + signext(SIMM16 * 4) + 4
-void InstructionSOPP::S_BRANCH(WarpState *item, uint32_t lane_id)
+void INST::S_BRANCH(WarpState *item, uint32_t lane_id)
 {
 	short simm16;
 	int se_simm16;
 
 	// Load the short constant operand and sign extend into an integer.
-	simm16 = opcode.simm16;
+	simm16 = OPCODE.simm16;
 	se_simm16 = simm16;
 
 	// Relative jump
@@ -50,7 +58,7 @@ void InstructionSOPP::S_BRANCH(WarpState *item, uint32_t lane_id)
 }
 
 // if(SCC == 0) then PC = PC + signext(SIMM16 * 4) + 4; else nop.
-void InstructionSOPP::S_CBRANCH_SCC0(WarpState *item, uint32_t lane_id)
+void INST::S_CBRANCH_SCC0(WarpState *item, uint32_t lane_id)
 {
 	short simm16;
 	int se_simm16;
@@ -59,7 +67,7 @@ void InstructionSOPP::S_CBRANCH_SCC0(WarpState *item, uint32_t lane_id)
 	{
 		/* Load the short constant operand and sign extend into an
 		 * integer. */
-		simm16 = opcode.simm16;
+		simm16 = OPCODE.simm16;
 		se_simm16 = simm16;
 
 		// Determine the program counter to branch to.
@@ -70,7 +78,7 @@ void InstructionSOPP::S_CBRANCH_SCC0(WarpState *item, uint32_t lane_id)
 
 
 // if(SCC == 1) then PC = PC + signext(SIMM16 * 4) + 4; else nop.
-void InstructionSOPP::S_CBRANCH_SCC1(WarpState *item, uint32_t lane_id)
+void INST::S_CBRANCH_SCC1(WarpState *item, uint32_t lane_id)
 {
 	short simm16;
 	int se_simm16;
@@ -85,7 +93,7 @@ void InstructionSOPP::S_CBRANCH_SCC1(WarpState *item, uint32_t lane_id)
 
 		/* Load the short constant operand and sign extend into an
 		 * integer. */
-		simm16 = opcode.simm16;
+		simm16 = OPCODE.simm16;
 		se_simm16 = simm16;
 
 		// Determine the program counter to branch to.
@@ -99,7 +107,7 @@ void InstructionSOPP::S_CBRANCH_SCC1(WarpState *item, uint32_t lane_id)
 }
 
 // if(VCC == 0) then PC = PC + signext(SIMM16 * 4) + 4; else nop.
-void InstructionSOPP::S_CBRANCH_VCCZ(WarpState *item, uint32_t lane_id)
+void INST::S_CBRANCH_VCCZ(WarpState *item, uint32_t lane_id)
 {
 	short simm16;
 	int se_simm16;
@@ -108,7 +116,7 @@ void InstructionSOPP::S_CBRANCH_VCCZ(WarpState *item, uint32_t lane_id)
 	{
 		/* Load the short constant operand and sign extend into an
 		 * integer. */
-		simm16 = opcode.simm16;
+		simm16 = OPCODE.simm16;
 		se_simm16 = simm16;
 
 		// Determine the program counter to branch to.
@@ -118,7 +126,7 @@ void InstructionSOPP::S_CBRANCH_VCCZ(WarpState *item, uint32_t lane_id)
 }
 
 // if(VCC == 0) then PC = PC + signext(SIMM16 * 4) + 4; else nop.
-void InstructionSOPP::S_CBRANCH_VCCNZ(WarpState *item, uint32_t lane_id)
+void INST::S_CBRANCH_VCCNZ(WarpState *item, uint32_t lane_id)
 {
 	short simm16;
 	int se_simm16;
@@ -127,7 +135,7 @@ void InstructionSOPP::S_CBRANCH_VCCNZ(WarpState *item, uint32_t lane_id)
 	{
 		/* Load the short constant operand and sign extend into an
 		 * integer. */
-		simm16 = opcode.simm16;
+		simm16 = OPCODE.simm16;
 		se_simm16 = simm16;
 
 		// Determine the program counter to branch to.
@@ -137,7 +145,7 @@ void InstructionSOPP::S_CBRANCH_VCCNZ(WarpState *item, uint32_t lane_id)
 }
 
 // if(EXEC == 0) then PC = PC + signext(SIMM16 * 4) + 4; else nop.
-void InstructionSOPP::S_CBRANCH_EXECZ(WarpState *item, uint32_t lane_id)
+void INST::S_CBRANCH_EXECZ(WarpState *item, uint32_t lane_id)
 {
 	short simm16;
 	int se_simm16;
@@ -152,7 +160,7 @@ void InstructionSOPP::S_CBRANCH_EXECZ(WarpState *item, uint32_t lane_id)
 	{
 		/* Load the short constant operand and sign extend into an
 		 * integer. */
-		simm16 = opcode.simm16;
+		simm16 = OPCODE.simm16;
 		se_simm16 = simm16;
 
 		// Determine the program counter to branch to.
@@ -167,7 +175,7 @@ void InstructionSOPP::S_CBRANCH_EXECZ(WarpState *item, uint32_t lane_id)
 
 
 // if(EXEC != 0) then PC = PC + signext(SIMM16 * 4) + 4; else nop.
-void InstructionSOPP::S_CBRANCH_EXECNZ(WarpState *item, uint32_t lane_id)
+void INST::S_CBRANCH_EXECNZ(WarpState *item, uint32_t lane_id)
 {
 	short simm16;
 	int se_simm16;
@@ -176,7 +184,7 @@ void InstructionSOPP::S_CBRANCH_EXECNZ(WarpState *item, uint32_t lane_id)
 	{
 		/* Load the short constant operand and sign extend into an
 		 * integer. */
-		simm16 = opcode.simm16;
+		simm16 = OPCODE.simm16;
 		se_simm16 = simm16;
 
 		// Determine the program counter to branch to.
@@ -187,7 +195,7 @@ void InstructionSOPP::S_CBRANCH_EXECNZ(WarpState *item, uint32_t lane_id)
 
 /* Suspend current wavefront at the barrier. If all wavefronts in work-group
  * reached the barrier, wake them up */
-void InstructionSOPP::S_BARRIER(WarpState *item, uint32_t lane_id)
+void INST::S_BARRIER(WarpState *item, uint32_t lane_id)
 {
 #if 0
 	// Suspend current wavefront at the barrier
@@ -218,13 +226,13 @@ void InstructionSOPP::S_BARRIER(WarpState *item, uint32_t lane_id)
 #endif
 }
 
-void InstructionSOPP::S_WAITCNT(WarpState *item, uint32_t lane_id)
+void INST::S_WAITCNT(WarpState *item, uint32_t lane_id)
 {
 	// Nothing to do in emulation
 	item->SetMemoryWait(true);
 }
 
-void InstructionSOPP::S_PHI(WarpState *item, uint32_t lane_id)
+void INST::S_PHI(WarpState *item, uint32_t lane_id)
 {
 	ISAUnimplemented(item);
 }

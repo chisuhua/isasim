@@ -5,6 +5,8 @@
 #include "inc/WarpState.h"
 #include "inc/OperandUtil.h"
 #include <string>
+#include <sstream>
+#include <iomanip>
 #include <map>
 #include <cctype>
 #include <algorithm>
@@ -12,6 +14,7 @@
 #define DEFINSTEND(_fmt)
 #define DEFINST2(_name)
 
+// define V_AND_F32 = opcode enum
 #define DEFFMT(_fmt, _fmt_str, _enc)                            \
 	enum Opcode##_fmt {
 #define DEFINST(_name, _fmt_str, _opcode, _size, _flags)        \
@@ -23,6 +26,45 @@
 #undef DEFFMT
 #undef DEFINST
 #undef DEFEND
+
+
+enum RDMode {
+    RD_MODE_NE = 0,
+    RD_MODE_PINF = 1,
+    RD_MODE_NINF = 2,
+    RD_MODE_ZERO = 3,
+    RD_MODE_RTA = 4,
+    RD_MODE_INVALID = 0xff,
+    RD_NOT_SUPPORT = 0x100,
+}
+
+enum RegType {
+    Scalar = 0,
+    Vector = 1,
+    Data = 2,
+    TCC = 3
+}
+
+class Reg {
+public:
+    explicit Reg(int32_t reg_idx, int32_t range)
+        : reg_idx_(reg_idx)
+        , range_(range)
+    {}
+    bool operator==(const Reg& rhs) {
+        rhs.reg_idx_ == reg_idx_ && rhs.range_ == range_;
+    }
+    int32_t reg_idx_;
+    int32_t range_;
+    RegType reg_type_;
+}
+
+class Operand {
+public:
+    int32_t idx;
+    bool is_imm;
+    bool is_reg;
+}
 
 class Instruction {
   public:
@@ -39,6 +81,16 @@ class Instruction {
 		// Max
 		FormatCount
 	};
+
+    enum OperandName {
+        SRC0,
+        SRC1,
+        SRC2,
+        SRC3,
+        DST,
+        IMPLICIT_DST,
+        OPERAND_NAME_MAX
+    };
 
 
 	/// Special register enumeration
@@ -170,6 +222,19 @@ class Instruction {
 	// Instruction virtual address, stored when decoding
 	int address;
 
+    inline OperandName GetOperandName(int32_t i) {
+        switch(i) {
+            case 0: return SRC0; break;
+            case 1: return SRC1; break;
+            case 2: return SRC2; break;
+            case 3: return SRC3; break;
+            case 4: return DST; break;
+            case 5: return IMPLICIT_DST; break;
+            default: assert(false || "unknow operand idx");
+                     break;
+        }
+    }
+
 	int getOp() { return info.op; }
 	// Opcode getOpcode() { return info ? info->opcode : OpcodeInvalid; }
 	Format getFormat() { return info.fmt; }
@@ -180,6 +245,8 @@ class Instruction {
 
     virtual void Decode(uint64_t _opcode) = 0;
     virtual void print() = 0;
+    virtual void dumpExecBegin(WarpState *w) {};
+    virtual void dumpExecEnd(WarpState *w) {};
     virtual void Execute(WarpState *item, uint32_t lane_id = 0) = 0;
     virtual ~Instruction() = default;
 
@@ -197,12 +264,15 @@ class Instruction {
     // sp_op = OTHER_OP;
     // op_pipe = UNKOWN_OP;
     // mem_op = NOT_TEX;
-    num_operands = 0;
+    num_src_operands = 0;
+    num_dst_operands = 0;
     num_regs = 0;
+    operand_addr.resize(OPERAND_NAME_MAX);
+    operand_addr = {0, 0, 0, 0, 0, 0};
     // memset(out, 0, sizeof(unsigned));
     // memset(in, 0, sizeof(unsigned));
-    is_vectorin = 0;
-    is_vectorout = 0;
+    // is_vectorin = 0;
+    // is_vectorout = 0;
     // space = memory_space_t();
     // cache_op = CACHE_UNDEFINED;
     latency = 1;
@@ -213,6 +283,7 @@ class Instruction {
       arch_reg.dst[i] = -1;
     }*/
     m_size = 0;
+
 	Clear();
   }
 
@@ -240,12 +311,32 @@ class Instruction {
   }
 #endif
 
-  unsigned get_num_operands() const { return num_operands; }
+  unsigned get_num_src_operands() const { return num_src_operands; }
+  unsigned get_num_dst_operands() const { return num_dst_operands; }
   unsigned get_num_regs() const { return num_regs; }
   void set_num_regs(unsigned num) { num_regs = num; }
-  void set_num_operands(unsigned num) { num_operands = num; }
+  void set_num_src_operands(unsigned num) { num_src_operands = num; }
+  void set_num_dst_operands(unsigned num) { num_dst_operands = num; }
   void set_bar_id(unsigned id) { bar_id = id; }
   void set_bar_count(unsigned count) { bar_count = count; }
+
+  bool hasOperand(OperandName operand_name) const {
+      switch (operand_name) {
+          case SRC0: return num_src_operands >= 1;
+          case SRC1: return num_src_operands >= 2;
+          case SRC2: return num_src_operands >= 3;
+          case SRC3: return num_src_operands >= 4;
+          case DST: return num_dst_operands >= 1;
+          default:
+            return false;
+      }
+  }
+
+  uint32_t getOperandAddr(OperandName operand_name) {
+      return operand_addr[operand_name];
+  };
+
+
 
   addr_t pc;  // program counter address of instruction
   op_type_t m_op_type;       // opcode (uarch visible)
@@ -255,27 +346,32 @@ class Instruction {
   unsigned bar_id;
   unsigned bar_count;
 
-  types_of_operands_t oprnd_type;  // code (uarch visible) identify if the
+  RDMode rd_mode;
+
+  // types_of_operands_t oprnd_type;  // code (uarch visible) identify if the
                                  // operation is an interger or a floating point
-  special_ops_t sp_op;  // code (uarch visible) identify if int_alu, fp_alu, int_mul ....
+  // special_ops_t sp_op;  // code (uarch visible) identify if int_alu, fp_alu, int_mul ....
   // operation_pipeline op_pipe;  // code (uarch visible) identify the pipeline of
                                // the operation (SP, SFU or MEM)
   // mem_operation mem_op;        // code (uarch visible) identify memory type
   // _memory_op_t memory_op;      // memory_op used by ptxplus
-  unsigned num_operands;
+  unsigned num_src_operands;
+  unsigned num_dst_operands;
+  std::vector<uint32_t> operand_addr;
   unsigned num_regs;  // count vector operand as one register operand
 
   addr_t reconvergence_pc;  // -1 => not a branch, -2 => use function
                                   // return address
-
+/*
   unsigned out[8];
   unsigned outcount;
   unsigned in[24];
   unsigned incount;
   unsigned char is_vectorin;
   unsigned char is_vectorout;
+*/
   int pred;  // predicate register number
-  int ar1, ar2;
+  // int ar1, ar2;
   // register number for bank conflict evaluation
   /*
   struct {
@@ -338,6 +434,8 @@ class Instruction##_fmt : public Instruction {                     \
     }                                                               \
     virtual void Decode(uint64_t opcode);                           \
     virtual void print();                                           \
+    virtual void dumpExecBegin(WarpState *w);                      \
+    virtual void dumpExecEnd(WarpState *w);                        \
                                                                     \
     virtual void Execute(WarpState *item, uint32_t lane_id = 0) override {               \
         (this->*(InstFuncTable[info.op]))(item, lane_id);                    \

@@ -1,10 +1,12 @@
 #pragma once
 #include <functional>
 #include <memory>
+#include <fstream>
+#include <sstream>
 #include <stdint.h>
 #include "inc/ExecTypes.h"
 // #include "abstract_hardware_model.h"
-
+//
 class Instruction;
 using mem_access_ftype = void(uint64_t, size_t, void*, mem_space_t);
 using dsm_access_ftype = void(uint64_t, size_t, void*);
@@ -43,11 +45,16 @@ public:
         delete m_sreg;
         delete m_vreg;
         delete m_status;
+        if (m_dump.is_open()) {
+            m_dump.close();
+        }
     }
 
     void init();
 
-    uint32_t getSreg(uint32_t reg_id) const;
+    void initDump(std::string filename);
+
+    uint32_t getSreg(uint32_t reg_id) ;
     void setSreg(uint32_t reg_id, uint32_t value);
 
     uint32_t getVreg(uint32_t reg_id, uint32_t lane_id);
@@ -70,13 +77,17 @@ public:
     void writeVMEM(uint64_t addr, uint32_t length, void *value, mem_space_t space = mem_space_t::undefined);
     void readVMEM(uint64_t addr, uint32_t length, void* value, mem_space_t space = mem_space_t::undefined);
 
-    void printSreg();
-    void printSreg(uint32_t sreg) ;
-    void printVreg() ;
-    void printVreg(uint32_t vreg) ;
+    // void printSreg();
+    // void printVreg() ;
+    void dumpAddr(std::stringstream &ss, std::vector<uint64_t> &addr, uint32_t tmsk) ;
+    void dumpSreg(std::stringstream &ss, uint32_t sreg);
+    void dumpVreg(std::stringstream &ss, uint32_t vreg, uint32_t reg_num = 1, uint32_t data_size = 8);
+
+    std::ofstream& out() {return m_dump;}
+    void flush() { m_dump.flush();}
 
     uint64_t setupAddrSpace(uint64_t, mem_space_t &space);
-    MemoryPointer getVBaseAddr(uint32_t vreg, uint32_t lane_id); // call by VMEM
+    //MemoryPointer getVBaseAddr(uint32_t vreg, uint32_t lane_id); // call by VMEM
     MemoryPointer getDBaseAddr(uint32_t vreg, uint32_t lane_id); // call by DMEM
     MemoryPointer getSBaseAddr(uint32_t vreg); // call by SMEM
     uint64_t calculateAddr(uint32_t vreg);
@@ -156,6 +167,7 @@ public:
 
     WarpStatus *m_status;
     // active_mask_t m_active_mask;
+    std::ofstream m_dump;
 
 private:
     uint32_t m_sreg_num;
