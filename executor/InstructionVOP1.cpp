@@ -11,52 +11,35 @@
 void INST::Decode(uint64_t _opcode) {
     bytes.dword = _opcode;
     info.op = OPCODE.op;
-	if (OPCODE.src0 == 0xFF) {
+	if (OPCODE.ext.e0_.ext_enc == 0x7) {
 		m_size = 8;
 	} else {
         bytes.word[1] = 0;
 		m_size = 4;
     }
-    num_src_operands = 2; src_operand_addr.resize(2);
-    num_dst_operands = 1; dst_operand_addr.resize(1);
-    // FIXME on E32 format
+    is_VOP1 = true;
+    num_dst_operands = 1;
+    num_src_operands = 1;
+    uint32_t reg_range = 1;
+
+    operands_[Operand::SRC0] = std::make_shared<Operand>(Operand::SRC0,
+                Reg(OPCODE.src0, reg_range, OPCODE.ssrc0_ == 1? Reg::Scalar : Reg::Vector));
+
+    operands_[Operand::DST] = std::make_shared<Operand>( Operand::DST,
+                Reg(OPCODE.vdst, reg_range, Reg::Vector));
+
 }
 
 void INST::print() {
-    printf("op_enc(%lx): %s ", info.op, opcode_str[info.op].c_str());
+    printf("decode as: %s(%lx), ", opcode_str[info.op].c_str(), info.op);
     printVOP1(OPCODE);
-    printf("\tv%d", OPCODE.vdst);
-    uint32_t src0;
-	// Load operand from register or as a literal constant.
-	/*if (OPCODE.src0 == 0xFF)
-        printf(" v%d", OPCODE.lit_const);
-	else*/ {
-        if (OPCODE.ssrc0_ == 0)
-            printf(", s%d", OPCODE.src0);
-        else
-            printf(", v%d", OPCODE.src0);
-    }
-    printf("\n");
 }
 
 void INST::dumpExecBegin(WarpState *w) {
-    std::stringstream ss;
-	int vdst = OPCODE.vdst; //  << 2;
-	int src0 = OPCODE.src0; //  << 2;
-    if (OPCODE.ssrc0_){
-        ss << "sreg" << std::dec << src0 << ":";
-        w->dumpSreg(ss, src0);
-        ss << "\n";
-    } else {
-        ss << "vreg" << std::dec << src0 << ":";
-        w->dumpVreg(ss, src0);
-        ss << "\n";
-    }
-    w->out() << ss.str();
+    Instruction::dumpExecBegin(w);
 }
 
 void INST::dumpExecEnd(WarpState *w) {
-    this->dumpExecBegin(w);
 }
 
 

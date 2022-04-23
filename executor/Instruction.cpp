@@ -13,6 +13,8 @@ std::shared_ptr<Instruction> make_instruction(uint64_t _opcode)
 
     std::shared_ptr<Instruction> inst;
 
+    //    printf("INFO: make instruction for fmt enc: (%s)%x\n", _fmt_str, _enc);    \
+
     if (false) {
 #define DEFINSTEND(_fmt)
 #define DEFINST2(_name)
@@ -20,7 +22,6 @@ std::shared_ptr<Instruction> make_instruction(uint64_t _opcode)
 #define DEFEND(_fmt)
 #define DEFFMT(_fmt, _fmt_str, _enc)                                \
 	} else if (opcode._fmt.enc == _enc) {                           \
-        printf("INFO: make instruction for fmt enc: (%s)%x\n", _fmt_str, _enc);    \
         inst = Instruction##_fmt::make_instruction(_opcode);
 #include <opcodes.def>
 #undef DEFINST

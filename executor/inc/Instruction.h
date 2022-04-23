@@ -36,20 +36,21 @@ enum RDMode {
     RD_MODE_RTA = 4,
     RD_MODE_INVALID = 0xff,
     RD_NOT_SUPPORT = 0x100,
-}
+};
 
-enum RegType {
-    Scalar = 0,
-    Vector = 1,
-    Data = 2,
-    TCC = 3
-}
 
 class Reg {
 public:
-    explicit Reg(int32_t reg_idx, int32_t range)
+    enum RegType {
+        Scalar = 0,
+        Vector = 1,
+        Data = 2,
+        TCC = 3
+    };
+    Reg(int32_t reg_idx, int32_t range = 1, RegType rt = Vector )
         : reg_idx_(reg_idx)
         , range_(range)
+        , reg_type_(rt)
     {}
     bool operator==(const Reg& rhs) {
         rhs.reg_idx_ == reg_idx_ && rhs.range_ == range_;
@@ -57,14 +58,121 @@ public:
     int32_t reg_idx_;
     int32_t range_;
     RegType reg_type_;
-}
+};
+
 
 class Operand {
 public:
-    int32_t idx;
-    bool is_imm;
-    bool is_reg;
-}
+    enum OperandName {
+        SRC0 = 0,
+        SRC1 = 1,
+        SRC2 = 2,
+        SRC3 = 3,
+        DST = 4,
+        IMPLICIT_DST = 5,
+        OPERAND_NAME_MAX
+    };
+
+    static OperandName GetSrcOperand(uint32_t idx) {
+        switch(idx) {
+            case 0: return SRC0; break;
+            case 1: return SRC1; break;
+            case 2: return SRC2; break;
+            case 3: return SRC3; break;
+            default: assert(false || "unknow src operand idx");
+                     break;
+        }
+    }
+
+    static OperandName GetDstOperand(uint32_t idx) {
+        switch(idx) {
+            case 0: return DST; break;
+            case 1: return IMPLICIT_DST; break;
+            default: assert(false || "unknow dst operand idx");
+                     break;
+        }
+    }
+
+    static std::string GetOperandNameStr(OperandName name) {
+        switch(name) {
+            case SRC0: return "SRC0"; break;
+            case SRC1: return "SRC1"; break;
+            case SRC2: return "SRC2"; break;
+            case SRC3: return "SRC3"; break;
+            case DST: return "DST"; break;
+            case IMPLICIT_DST: return "IMPLICIT_DST"; break;
+            default: assert(false || "unknow operand idx");
+                     break;
+        }
+    }
+
+    explicit Operand(enum OperandName name, Reg reg)
+        : name_(name)
+        , reg_(reg) {
+            is_valid_ = true;
+        }
+    explicit Operand(enum OperandName name, uint32_t imm) {
+        name_ = name;
+        is_imm_ = true;
+        imm_.as_uint = imm;
+        is_valid_ = true;
+    }
+    void setRegType(Reg::RegType rt) {
+        reg_.reg_type_ = rt;
+    }
+    OperandName name_;
+    bool is_valid_ {false};
+    bool is_imm_ {false};
+    bool is_scalar_ready_ {false};  // ready to execute warp operand
+    std::vector<bool> is_vector_ready_ {false};  // ready to execute thread operand
+    Reg reg_ {0, 0};
+    Register imm_;
+    std::vector<Register> value_;
+    uint32_t range_;
+
+    bool isDst() {
+        if (name_ > DST) { return true; } else return false;
+    }
+    bool isValid() {return is_valid_;}
+    bool isImm() {return is_imm_;}
+    uint32_t getImm() {return imm_.as_uint;}
+
+    void dumpReg(std::stringstream& ss, WarpState *w) {
+        if (isImm()) {
+            ss << getImm();
+        } else if (reg_.reg_type_ == Reg::Scalar) {
+            for (uint32_t i=0; i < reg_.range_; i++) {
+                ss << "s" << reg_.reg_idx_ + i << "=";
+                w->dumpSreg(ss, reg_.reg_idx_);
+            }
+        } else if (reg_.reg_type_ == Reg::Vector) {
+            Register value;
+            for (uint32_t i=0; i < reg_.range_; i++) {
+                ss << "v" << reg_.reg_idx_ + i << "=";
+                w->dumpVreg(ss, reg_.reg_idx_ + i);
+            }
+        }
+    }
+
+    void readReg(WarpState *w, uint32_t lane_id = 0) {
+        if (is_imm_) return;
+        range_ = reg_.range_;
+        value_.resize(range_);
+        for (uint32_t i=0; i < range_; i++) {
+            if (reg_.reg_type_ == Reg::Scalar) {
+                is_scalar_ready_ = true;
+                value_[i].as_uint = w->getSreg(reg_.reg_idx_ + i);
+            } else if (reg_.reg_type_ == Reg::Vector) {
+                is_vector_ready_[lane_id] = true;
+                value_[i].as_uint = w->getVreg(reg_.reg_idx_ + i, lane_id);
+            } else {
+                assert("TODO");
+            }
+        }
+    }
+    void writeReg(WarpState *w, uint32_t lane_id = 0) {
+    }
+};
 
 class Instruction {
   public:
@@ -81,16 +189,6 @@ class Instruction {
 		// Max
 		FormatCount
 	};
-
-    enum OperandName {
-        SRC0,
-        SRC1,
-        SRC2,
-        SRC3,
-        DST,
-        IMPLICIT_DST,
-        OPERAND_NAME_MAX
-    };
 
 
 	/// Special register enumeration
@@ -222,14 +320,14 @@ class Instruction {
 	// Instruction virtual address, stored when decoding
 	int address;
 
-    inline OperandName GetOperandName(int32_t i) {
+    inline Operand::OperandName GetOperandName(int32_t i) {
         switch(i) {
-            case 0: return SRC0; break;
-            case 1: return SRC1; break;
-            case 2: return SRC2; break;
-            case 3: return SRC3; break;
-            case 4: return DST; break;
-            case 5: return IMPLICIT_DST; break;
+            case 0: return Operand::SRC0; break;
+            case 1: return Operand::SRC1; break;
+            case 2: return Operand::SRC2; break;
+            case 3: return Operand::SRC3; break;
+            case 4: return Operand::DST; break;
+            case 5: return Operand::IMPLICIT_DST; break;
             default: assert(false || "unknow operand idx");
                      break;
         }
@@ -245,8 +343,24 @@ class Instruction {
 
     virtual void Decode(uint64_t _opcode) = 0;
     virtual void print() = 0;
-    virtual void dumpExecBegin(WarpState *w) {};
-    virtual void dumpExecEnd(WarpState *w) {};
+    virtual void dumpExecBegin(WarpState *w) {
+        std::stringstream ss;
+        for (uint32_t i= 0; i < num_src_operands; i++) {
+            Operand::OperandName name = Operand::GetSrcOperand(i);
+            operands_[name]->dumpReg(ss, w);
+            ss << "\n";
+        }
+        w->out() << ss.str() << "\n";
+    };
+    virtual void dumpExecEnd(WarpState *w) {
+        std::stringstream ss;
+        for (uint32_t i= 0; i < num_src_operands; i++) {
+            Operand::OperandName name = Operand::GetDstOperand(i);
+            operands_[name]->dumpReg(ss, w);
+            ss << "\n";
+        }
+        w->out() << ss.str() << "\n";
+    };
     virtual void Execute(WarpState *item, uint32_t lane_id = 0) = 0;
     virtual ~Instruction() = default;
 
@@ -267,8 +381,9 @@ class Instruction {
     num_src_operands = 0;
     num_dst_operands = 0;
     num_regs = 0;
-    operand_addr.resize(OPERAND_NAME_MAX);
-    operand_addr = {0, 0, 0, 0, 0, 0};
+    operands_.resize(Operand::OPERAND_NAME_MAX);
+    // operand_addr.resize(OPERAND_NAME_MAX);
+    // operand_addr = {0, 0, 0, 0, 0, 0};
     // memset(out, 0, sizeof(unsigned));
     // memset(in, 0, sizeof(unsigned));
     // is_vectorin = 0;
@@ -320,21 +435,21 @@ class Instruction {
   void set_bar_id(unsigned id) { bar_id = id; }
   void set_bar_count(unsigned count) { bar_count = count; }
 
-  bool hasOperand(OperandName operand_name) const {
+  bool hasOperand(Operand::OperandName operand_name) const {
       switch (operand_name) {
-          case SRC0: return num_src_operands >= 1;
-          case SRC1: return num_src_operands >= 2;
-          case SRC2: return num_src_operands >= 3;
-          case SRC3: return num_src_operands >= 4;
-          case DST: return num_dst_operands >= 1;
+          case Operand::SRC0: return num_src_operands >= 1;
+          case Operand::SRC1: return num_src_operands >= 2;
+          case Operand::SRC2: return num_src_operands >= 3;
+          case Operand::SRC3: return num_src_operands >= 4;
+          case Operand::DST: return num_dst_operands >= 1;
           default:
             return false;
       }
   }
 
-  uint32_t getOperandAddr(OperandName operand_name) {
-      return operand_addr[operand_name];
-  };
+  // uint32_t getOperandAddr(OperandName operand_name) {
+  //    return operand_addr[operand_name];
+  //};
 
 
 
@@ -357,8 +472,8 @@ class Instruction {
   // _memory_op_t memory_op;      // memory_op used by ptxplus
   unsigned num_src_operands;
   unsigned num_dst_operands;
-  std::vector<uint32_t> operand_addr;
   unsigned num_regs;  // count vector operand as one register operand
+  std::vector<std::shared_ptr<Operand>> operands_;
 
   addr_t reconvergence_pc;  // -1 => not a branch, -2 => use function
                                   // return address

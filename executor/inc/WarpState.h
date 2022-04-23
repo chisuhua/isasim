@@ -81,7 +81,7 @@ public:
     // void printVreg() ;
     void dumpAddr(std::stringstream &ss, std::vector<uint64_t> &addr, uint32_t tmsk) ;
     void dumpSreg(std::stringstream &ss, uint32_t sreg);
-    void dumpVreg(std::stringstream &ss, uint32_t vreg, uint32_t reg_num = 1, uint32_t data_size = 8);
+    void dumpVreg(std::stringstream &ss, uint32_t vreg, uint32_t data_size = 8);
 
     std::ofstream& out() {return m_dump;}
     void flush() { m_dump.flush();}

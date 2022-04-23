@@ -7,36 +7,43 @@
 void INST::Decode(uint64_t _opcode) {
     bytes.dword = _opcode;
     info.op = OPCODE.op;
-    bytes.word[1] = 0;
-	m_size = 4;
+	if (OPCODE.ext.e0_.ext_enc == 0x7) {
+		m_size = 8;
+	} else {
+        bytes.word[1] = 0;
+	    m_size = 4;
+    }
+    is_VLS = true;
+    num_dst_operands = 1;
+    num_src_operands = 2;
+    uint32_t reg_range = 1;
+    if (info.op == OpcodeVLS::V_LOAD_DWORDX4) {
+        reg_range = 4;
+    } else if (info.op == OpcodeVLS::V_LOAD_DWORDX2) {
+        reg_range = 2;
+    }
+
+    operands_[Operand::SRC0] = std::make_shared<Operand>(Operand::SRC0,
+                Reg(OPCODE.vaddr, reg_range, OPCODE.ssrc0_ == 1? Reg::Scalar : Reg::Vector));
+
+    operands_[Operand::SRC1] = std::make_shared<Operand>(Operand::SRC0,
+                (uint32_t)OPCODE.offset);
+
+    operands_[Operand::DST] = std::make_shared<Operand>( Operand::DST,
+                Reg(OPCODE.vdata, reg_range, Reg::Vector));
+
 }
 
 void INST::print() {
-    printf("Instruction: %s(%x)\n", opcode_str[info.op].c_str(), info.op);
+    printf("decode as: %s(%lx), ", opcode_str[info.op].c_str(), info.op);
     printVLS(OPCODE);
 }
 
 void INST::dumpExecBegin(WarpState *w) {
-    std::stringstream ss;
-	uint32_t vaddr = OPCODE.vaddr; //  << 2;
-	int offset = OPCODE.vaddr; //  << 2;
-	int vdst = OPCODE.vdata; //  << 2;
-    if (OPCODE.ssrc0_){
-        ss << "saddr" << std::hex << vaddr << "offset" << offset << "\n";
-        ss << "sreg" << std::dec << vaddr << ":";
-        w->dumpSreg(ss, vaddr);
-        ss << "\n";
-    } else {
-        ss << "vaddr" << std::hex << vaddr << "offset" << offset << "\n";
-        ss << "vreg" << std::dec << vaddr << ":";
-        w->dumpVreg(ss, vaddr);
-        ss << "\n";
-    }
-    w->out() << ss.str();
+    Instruction::dumpExecBegin(w);
 }
 
 void INST::dumpExecEnd(WarpState *w) {
-    this->dumpExecBegin(w);
 }
 
 

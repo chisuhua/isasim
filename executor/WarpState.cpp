@@ -154,18 +154,16 @@ void WarpState::printVreg() {
 }
 */
 
-void WarpState::dumpVreg(std::stringstream &ss, uint32_t vreg, uint32_t reg_num, uint32_t data_size) {
-    for (uint32_t i=0 ; i < reg_num; i++) {
-        for (uint32_t w=0; w < m_warp_size; w++) {
-            if (w == 16) {
-                ss << "         ";
-            }
-            ss << "0x" << std::setw(data_size) << std::setfill('0') << getVreg(vreg + i, w);
-            if ((w + 1) % 16 == 0) {
-                ss << "\n";
-            } else {
-                ss << " ";
-            }
+void WarpState::dumpVreg(std::stringstream &ss, uint32_t vreg, uint32_t data_size) {
+    for (uint32_t w=0; w < m_warp_size; w++) {
+        if (w == 16) {
+            ss << "         ";
+        }
+        ss << "0x" << std::setw(data_size) << std::setfill('0') << getVreg(vreg, w);
+        if ((w + 1) % 16 == 0) {
+            ss << "\n";
+        } else {
+            ss << " ";
         }
     }
 }
