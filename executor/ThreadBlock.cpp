@@ -8,7 +8,6 @@
 #include "../../libcuda/cuda-sim/memory.h"
 #include "../../libcuda/gpgpu_context.h"
 
-extern int libcuda::g_debug_execution;
 
 cta_info_t::cta_info_t(gpgpu_context *ctx, dim3 cta_id) {
   m_uid = (ctx->g_ptx_cta_info_uid)++;
@@ -142,10 +141,11 @@ ThreadBlock::ThreadBlock(libcuda::gpgpu_t *gpu, KernelInfo* kernel, libcuda::gpg
 void ThreadBlock::executeInstruction(shared_ptr<Instruction> inst, unsigned warpId) {
   active_mask_t active_mask = m_Warp[warpId]->get_simt_active_mask();
   bool leading_thread = true;
-  if (libcuda::g_debug_execution > 1) {
-    inst->dumpExecBegin(m_Warp[warpId]->m_warp_state);
+  if (g_debug_exec > 1) {
+    inst->Issue(m_Warp[warpId]->m_warp_state);
+    inst->OperandCollect(m_Warp[warpId]->m_warp_state);
   }
-  // m_Warp[warpId]->m_warp_state->setActiveMask(active_mask);
+  m_Warp[warpId]->m_warp_state->setActiveMask(active_mask);
   for (unsigned t = 0; t < m_warp_size; t++) {
     if (active_mask.test(t)) {
       // if (warpId == (unsigned(-1))) warpId = inst.warp_id();
@@ -163,8 +163,8 @@ void ThreadBlock::executeInstruction(shared_ptr<Instruction> inst, unsigned warp
       checkExecutionStatusAndUpdate(inst, t, tid);
     }
   }
-  if (libcuda::g_debug_execution > 1) {
-    inst->dumpExecEnd(m_Warp[warpId]->m_warp_state);
+  if (g_debug_exec > 1) {
+    inst->WriteBack(m_Warp[warpId]->m_warp_state);
     m_Warp[warpId]->m_warp_state->flush();
   }
 }
@@ -204,7 +204,7 @@ shared_ptr<Instruction> ThreadBlock::getInstruction(address_type pc) {
         m_insts[pc] = make_instruction(opcode);
         m_insts[pc]->Decode(opcode);
         m_insts[pc]->pc = pc;
-        printf("PC=%lx(%lx): opcode %lx, ", pc, pc_address, opcode);
+        printf("IFETCH PC=%lx(%lx): opcode %lx, ", pc, pc_address, opcode);
         m_insts[pc]->print();
         return m_insts[pc];
     }
@@ -313,7 +313,7 @@ unsigned ThreadBlock::createThread(KernelInfo &kernel,
   if (*thread_info != NULL) {
     ThreadItem *thd = *thread_info;
     assert(thd->is_done());
-    if (libcuda::g_debug_execution == -1) {
+    if (g_debug_exec == -1) {
       dim3 ctaid = thd->get_ctaid();
       dim3 t = thd->get_tid();
       printf(
@@ -339,7 +339,7 @@ unsigned ThreadBlock::createThread(KernelInfo &kernel,
   }
 
   thd->init(gpu, tb, sid, hw_cta_id, hw_warp_id, tid);
-  if (libcuda::g_debug_execution > 1) {
+  if (g_debug_exec > 1) {
     printf("GPGPU-Sim PTX simulator:  STARTING THREAD ALLOCATION --> \n");
     fflush(stdout);
   }
@@ -355,7 +355,7 @@ unsigned ThreadBlock::createThread(KernelInfo &kernel,
   thd->set_ctaid(ctaid3d);
   thd->set_tid(tid3d);
   thd->set_valid();
-  if (libcuda::g_debug_execution == -1) {
+  if (g_debug_exec == -1) {
     printf(
           "GPGPU-Sim PTX simulator:  allocating thread ctaid=(%u,%u,%u) "
           "tid=(%u,%u,%u) @ 0x%Lx\n",
@@ -364,7 +364,7 @@ unsigned ThreadBlock::createThread(KernelInfo &kernel,
       fflush(stdout);
   }
   // thread_pool.push_back(thd);
-  if (libcuda::g_debug_execution == -1) {
+  if (g_debug_exec == -1) {
     printf("GPGPU-Sim PTX simulator:  <-- FINISHING THREAD ALLOCATION\n");
     fflush(stdout);
   }

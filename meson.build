@@ -98,7 +98,8 @@ executor_src = [
   'executor/InstructionVOP2.cpp',
   'executor/InstructionVOP3A.cpp',
   'executor/InstructionVOP3B.cpp',
-  'executor/InstructionVOPC.cpp'
+  'executor/InstructionVOPC.cpp',
+  'executor/InstructionCommon.cpp'
   ]
 
 executor = shared_library(

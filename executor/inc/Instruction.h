@@ -1,5 +1,6 @@
 #pragma once
 // #include "inc/Compute.h"
+#include "inc/ExecTypes.h"
 #include "inc/ExecContext.h"
 //#include "inc/ThreadBlock.h"
 #include "inc/WarpState.h"
@@ -10,6 +11,8 @@
 #include <map>
 #include <cctype>
 #include <algorithm>
+
+extern int g_debug_exec;
 
 #define DEFINSTEND(_fmt)
 #define DEFINST2(_name)
@@ -47,16 +50,20 @@ public:
         Data = 2,
         TCC = 3
     };
-    Reg(int32_t reg_idx, int32_t range = 1, RegType rt = Vector )
+    Reg(int32_t reg_idx, int32_t range = 1, RegType rt = Vector, int32_t lane_stride = 0, int32_t lie = false )
         : reg_idx_(reg_idx)
         , range_(range)
         , reg_type_(rt)
+        , lane_stride_(lane_stride)
+        , lie_(lie)
     {}
     bool operator==(const Reg& rhs) {
         rhs.reg_idx_ == reg_idx_ && rhs.range_ == range_;
     }
     int32_t reg_idx_;
     int32_t range_;
+    int32_t lane_stride_;
+    bool    lie_;
     RegType reg_type_;
 };
 
@@ -110,6 +117,20 @@ public:
         : name_(name)
         , reg_(reg) {
             is_valid_ = true;
+            range_ = reg.range_;
+            if (reg_.reg_type_ == Reg::Scalar || reg_.reg_type_ == Reg::TCC) {
+                value_.resize(range_);
+            } else if (reg_.reg_type_ == Reg::Vector ||
+                        reg_.reg_type_ == Reg::Data
+                    ) {
+                vector_value_.resize(range_);
+                is_vector_ready_.resize(MAX_WARPSIZE);
+                for (uint32_t i = 0; i < range_; i++) {
+                    vector_value_[i].resize(MAX_WARPSIZE);
+                }
+            } else {
+                assert(false || "new Operand ");
+            }
         }
     explicit Operand(enum OperandName name, uint32_t imm) {
         name_ = name;
@@ -124,10 +145,11 @@ public:
     bool is_valid_ {false};
     bool is_imm_ {false};
     bool is_scalar_ready_ {false};  // ready to execute warp operand
-    std::vector<bool> is_vector_ready_ {false};  // ready to execute thread operand
-    Reg reg_ {0, 0};
+    std::vector<bool> is_vector_ready_;  // ready to execute thread operand
+    Reg reg_ {0};
     Register imm_;
     std::vector<Register> value_;
+    std::vector<std::vector<Register>> vector_value_;
     uint32_t range_;
 
     bool isDst() {
@@ -137,40 +159,224 @@ public:
     bool isImm() {return is_imm_;}
     uint32_t getImm() {return imm_.as_uint;}
 
-    void dumpReg(std::stringstream& ss, WarpState *w) {
+    Register getValue(int32_t lane_id = -1) {
+        if (is_imm_) {
+            return imm_;
+        }
+        if (reg_.reg_type_ == Reg::Scalar ||
+            reg_.reg_type_ == Reg::TCC
+                ) {
+            return value_[0];
+        } else if (reg_.reg_type_ == Reg::Vector ||
+                    reg_.reg_type_ == Reg::Data
+                ) {
+            assert(lane_id != -1);
+            return vector_value_[0][lane_id];
+        } else {
+            assert(false || "TODO Operand getValue");
+        }
+    }
+
+    std::vector<Register> getValueX(int32_t lane_id = -1) {
+        std::vector<Register> value;
+        if (is_imm_) {
+            value.push_back(imm_);
+            return value;
+        }
+        if (reg_.reg_type_ == Reg::Scalar ||
+            reg_.reg_type_ == Reg::TCC ) {
+            return value_;
+        } else if (reg_.reg_type_ == Reg::Vector ||
+                  reg_.reg_type_ == Reg::Data) {
+            assert(lane_id != -1);
+            for (uint32_t i=0; i < reg_.range_; i++) {
+                value.push_back(vector_value_[i][lane_id]);
+            }
+            return value;
+        } else {
+            assert(false || "TODO Operand getValue");
+        }
+    }
+
+    void setValue(Register value, int32_t lane_id = -1) {
+        assert(is_imm_ == false);
+        if (reg_.reg_type_ == Reg::Scalar ||
+            reg_.reg_type_ == Reg::TCC ) {
+            is_scalar_ready_ = true;
+            value_[0].as_uint = value.as_uint;
+        } else if (reg_.reg_type_ == Reg::Vector ||
+            reg_.reg_type_ == Reg::Data) {
+            assert(lane_id != -1);
+            is_vector_ready_[lane_id] = true;
+            vector_value_[0][lane_id].as_uint = value.as_uint;
+        } else {
+            assert(false || "TODO Operand getValue");
+        }
+    }
+
+    void setBitmask(Register value, int32_t lane_id = -1) {
+        assert(is_imm_ == false);
+        uint32_t mask = 1;
+        Register bitfield;
+        assert(reg_.reg_type_ == Reg::Scalar || reg_.reg_type_ == Reg::TCC);
+
+        if (lane_id < 32) {
+            mask <= lane_id;
+            bitfield = value_[0];
+            value_[0].as_uint = (value.as_uint) ? bitfield.as_uint | mask : bitfield.as_uint & ~mask;
+	    } else {
+            assert(range_ > 1);
+		    mask <<= (lane_id - 32);
+		    bitfield = value_[1];
+		    value_[1].as_uint = (value.as_uint) ? bitfield.as_uint | mask: bitfield.as_uint & ~mask;
+        }
+    }
+
+    void setValueX(std::vector<Register> value, int32_t lane_id = -1) {
+        assert(is_imm_ == false);
+        assert(value.size() <= reg_.range_);
+        if (reg_.reg_type_ == Reg::Scalar ||
+            reg_.reg_type_ == Reg::TCC ) {
+            is_scalar_ready_ = true;
+            for (uint32_t i=0; i < reg_.range_; i++) {
+                value_[i].as_uint = value[i].as_uint;
+            }
+        } else if (reg_.reg_type_ == Reg::Vector ||
+            reg_.reg_type_ == Reg::Data) {
+            assert(lane_id != -1);
+            for (uint32_t i=0; i < reg_.range_; i++) {
+                is_vector_ready_[lane_id] = true;
+                vector_value_[i][lane_id].as_uint = value[i].as_uint;
+            }
+        } else {
+            assert(false || "TODO Operand getValue");
+        }
+    }
+
+    std::string getOperandStr() {
+        std::stringstream ss;
+        uint32_t idx = reg_.reg_idx_;
         if (isImm()) {
             ss << getImm();
+            return ss.str();
         } else if (reg_.reg_type_ == Reg::Scalar) {
+            ss << "s";
+        } else if (reg_.reg_type_ == Reg::TCC) {
+            ss << "tcc";
+            idx = idx - RegisterTcc;
+        } else if (reg_.reg_type_ == Reg::Vector) {
+            ss << "v";
+        } else if (reg_.reg_type_ == Reg::Data) {
+            if (reg_.lie_) {
+                ss << "l";
+            } else {
+                ss << "d";
+            }
+        } else {
+            assert(false || "TODO getOperandStr");
+        }
+        if (reg_.range_ == 1) {
+            ss << idx;
+        } else {
+            ss << "[" << idx <<  ":" << idx + reg_.range_ - 1 << "]";
+        }
+        return ss.str();
+    }
+
+    void dumpReg(std::stringstream& ss, WarpState *w) {
+        std::string space = "";
+        if (isImm()) {
+            ss << "Imm = " << std::hex << "0x" << getImm();
+        } else if (reg_.reg_type_ == Reg::Scalar ||
+                reg_.reg_type_ == Reg::TCC) {
             for (uint32_t i=0; i < reg_.range_; i++) {
-                ss << "s" << reg_.reg_idx_ + i << "=";
+                ss << "s" << reg_.reg_idx_ + i << " = ";
                 w->dumpSreg(ss, reg_.reg_idx_);
+                ss << ", ";
             }
         } else if (reg_.reg_type_ == Reg::Vector) {
             Register value;
             for (uint32_t i=0; i < reg_.range_; i++) {
-                ss << "v" << reg_.reg_idx_ + i << "=";
+                ss << space << "v" << reg_.reg_idx_ + i << " = ";
                 w->dumpVreg(ss, reg_.reg_idx_ + i);
+                space = "     ";
+            }
+        } else if (reg_.reg_type_ == Reg::Data) {
+            Register value;
+            uint32_t warp_addr_stride = reg_.lane_stride_ * w->getWarpSize();
+            for (uint32_t i=0; i < reg_.range_; i++) {
+                ss << space << ((reg_.lie_)? "l" : "d" )<< reg_.reg_idx_ + i << "-" << reg_.lane_stride_ << " = ";
+                w->dumpDmem(ss, reg_.reg_idx_ + i * warp_addr_stride, reg_.lane_stride_);
+                space = "     ";
             }
         }
+
     }
 
-    void readReg(WarpState *w, uint32_t lane_id = 0) {
+    void readReg(WarpState *w) {
         if (is_imm_) return;
         range_ = reg_.range_;
-        value_.resize(range_);
         for (uint32_t i=0; i < range_; i++) {
-            if (reg_.reg_type_ == Reg::Scalar) {
+            if (reg_.reg_type_ == Reg::Scalar || reg_.reg_type_ == Reg::TCC) {
                 is_scalar_ready_ = true;
-                value_[i].as_uint = w->getSreg(reg_.reg_idx_ + i);
+                Register value;
+                value.as_uint = w->getSreg(reg_.reg_idx_ + i);
+                value_[i] = value;
             } else if (reg_.reg_type_ == Reg::Vector) {
-                is_vector_ready_[lane_id] = true;
-                value_[i].as_uint = w->getVreg(reg_.reg_idx_ + i, lane_id);
+                std::vector<Register> vector_value (w->getWarpSize());
+                for (unsigned j = 0; j < w->getWarpSize(); j++) {
+                    if (w->getActiveMask().test(j)) {
+                        is_vector_ready_[j] = true;
+                        vector_value[j].as_uint = w->getVreg(reg_.reg_idx_ + i, j);
+                    }
+                }
+                vector_value_[i] = vector_value;
+            } else if (reg_.reg_type_ == Reg::Data) {
+                std::vector<Register> vector_value (w->getWarpSize());
+                uint32_t warp_stride = reg_.lane_stride_ * w->getWarpSize();
+                for (unsigned j = 0; j < w->getWarpSize(); j++) {
+                    if (w->getActiveMask().test(j)) {
+                        is_vector_ready_[j] = true;
+                        uint32_t value;
+                        w->getDmem(reg_.reg_idx_ + i * warp_stride + j * reg_.lane_stride_, 4 , (char*)&value);
+                        vector_value[j].as_uint = value;
+                    }
+                }
+                vector_value_[i] = vector_value;
             } else {
                 assert("TODO");
             }
         }
     }
-    void writeReg(WarpState *w, uint32_t lane_id = 0) {
+    void writeReg(WarpState *w) {
+        range_ = reg_.range_;
+        for (uint32_t i=0; i < range_; i++) {
+            if (reg_.reg_type_ == Reg::Scalar ||
+                reg_.reg_type_ == Reg::TCC) {
+                is_scalar_ready_ = true;
+                w->setSreg(reg_.reg_idx_ + i, value_[i].as_uint);
+            } else if (reg_.reg_type_ == Reg::Vector) {
+                for (unsigned j = 0; j < w->getWarpSize(); j++) {
+                    if (w->getActiveMask().test(j)) {
+                        assert(is_vector_ready_[j]);
+                        w->setVreg(reg_.reg_idx_ + i, vector_value_[i][j].as_uint, j);
+                    }
+                }
+            } else if (reg_.reg_type_ == Reg::Data) {
+                std::vector<Register> vector_value (w->getWarpSize());
+                uint32_t warp_stride = reg_.lane_stride_ * w->getWarpSize();
+                for (unsigned j = 0; j < w->getWarpSize(); j++) {
+                    if (w->getActiveMask().test(j)) {
+                        assert(is_vector_ready_[j]);
+                        uint32_t value;
+                        value = vector_value_[i][j].as_uint;
+                        w->setDmem(reg_.reg_idx_ + i * warp_stride + j * reg_.lane_stride_, 4 , (char*)&value);
+                    }
+                }
+            } else {
+                assert("TODO");
+            }
+        }
     }
 };
 
@@ -280,6 +486,7 @@ class Instruction {
 #undef DEFINST
 #undef DEFEND
 #endif
+    std::map<uint32_t, std::string> opcode_str;                     \
 	/// Entry in the instruction information table
 	struct Info
 	{
@@ -342,24 +549,73 @@ class Instruction {
 	op_type_t GetOpType() { return m_op_type; }
 
     virtual void Decode(uint64_t _opcode) = 0;
-    virtual void print() = 0;
-    virtual void dumpExecBegin(WarpState *w) {
-        std::stringstream ss;
+    virtual void print() {
+        printf("decode: %s(%lx), size=%d, ", opcode_str[info.op].c_str(), info.op, m_size);
+    }
+    virtual void Issue(WarpState *w) {
+        if (g_debug_exec >= 1) {
+            std::stringstream ss;
+            ss << "[PC=" << pc << "]: " << this->opcode_str[info.op].c_str();
+            for (uint32_t i= 0; i < num_dst_operands; i++) {
+                Operand::OperandName name = Operand::GetDstOperand(i);
+                ss << "  " << operands_[name]->getOperandStr();
+            }
+            for (uint32_t i= 0; i < num_src_operands; i++) {
+                Operand::OperandName name = Operand::GetSrcOperand(i);
+                ss << ", ";
+                ss << operands_[name]->getOperandStr();
+            }
+            ss << "\n  STATE: tmask =" << w->getActiveMask();
+            w->out() << ss.str(); //  << "\n";
+        }
+        /*
         for (uint32_t i= 0; i < num_src_operands; i++) {
             Operand::OperandName name = Operand::GetSrcOperand(i);
-            operands_[name]->dumpReg(ss, w);
-            ss << "\n";
+            // update Data Register 's stride infomation
+            if (operands_[name]->reg_.reg_type_ == Reg::Data) {
+	            int stride = w->getDmemStride(RegisterM0);
+                operands_[name]->reg_.lane_stride_ = stride;
+            }
         }
-        w->out() << ss.str() << "\n";
-    };
-    virtual void dumpExecEnd(WarpState *w) {
-        std::stringstream ss;
+        */
+    }
+    virtual void OperandCollect(WarpState *w) {
+        if (g_debug_exec >= 1) {
+            std::stringstream ss;
+            ss << "\n  OC:";
+            for (uint32_t i= 0; i < num_src_operands; i++) {
+                Operand::OperandName name = Operand::GetSrcOperand(i);
+                operands_[name]->dumpReg(ss, w);
+            }
+            ss << "\n";
+            w->out() << ss.str(); //  << "\n";
+        }
         for (uint32_t i= 0; i < num_src_operands; i++) {
-            Operand::OperandName name = Operand::GetDstOperand(i);
-            operands_[name]->dumpReg(ss, w);
-            ss << "\n";
+            Operand::OperandName name = Operand::GetSrcOperand(i);
+            operands_[name]->readReg(w);
         }
-        w->out() << ss.str() << "\n";
+        // target TCC need to read to for later bitmask operation
+        for (uint32_t i= 0; i < num_dst_operands; i++) {
+            Operand::OperandName name = Operand::GetDstOperand(i);
+            if (operands_[name]->reg_.reg_type_ == Reg::TCC) {
+                operands_[name]->readReg(w);
+            }
+        }
+    };
+    virtual void WriteBack(WarpState *w) {
+        for (uint32_t i= 0; i < num_dst_operands; i++) {
+            Operand::OperandName name = Operand::GetDstOperand(i);
+            operands_[name]->writeReg(w);
+        }
+        if (g_debug_exec >= 1) {
+            std::stringstream ss;
+            ss << "  WB:";
+            for (uint32_t i= 0; i < num_dst_operands; i++) {
+                Operand::OperandName name = Operand::GetDstOperand(i);
+                operands_[name]->dumpReg(ss, w);
+            }
+            w->out() << ss.str();
+        }
     };
     virtual void Execute(WarpState *item, uint32_t lane_id = 0) = 0;
     virtual ~Instruction() = default;
@@ -536,7 +792,6 @@ class Instruction##_fmt : public Instruction {                     \
   public:                                                           \
     typedef void (Instruction##_fmt::*FuncPtr)(WarpState *ti, uint32_t lane_id);  \
     FuncPtr InstFuncTable[255];                                     \
-    std::map<uint32_t, std::string> opcode_str;                     \
                                                                     \
     void addOp(uint32_t opcode, std::string op_str) {               \
        transform(op_str.begin(),op_str.end(), op_str.begin(), ::tolower); \
@@ -549,8 +804,8 @@ class Instruction##_fmt : public Instruction {                     \
     }                                                               \
     virtual void Decode(uint64_t opcode);                           \
     virtual void print();                                           \
-    virtual void dumpExecBegin(WarpState *w);                      \
-    virtual void dumpExecEnd(WarpState *w);                        \
+    virtual void OperandCollect(WarpState *w);                      \
+    virtual void WriteBack(WarpState *w);                        \
                                                                     \
     virtual void Execute(WarpState *item, uint32_t lane_id = 0) override {               \
         (this->*(InstFuncTable[info.op]))(item, lane_id);                    \
@@ -588,11 +843,10 @@ class Instruction##_fmt : public Instruction {                     \
 
 std::shared_ptr<Instruction> make_instruction(uint64_t _opcode);
 
-
+#if 0
 class WarpInst {
 public:
   Instruction *inst;
-#if 0
   addr_t get_reconvergence_pc { // -1 => not a branch, -2 => use function return address
       return inst->reconvergence_pc;
   }
@@ -605,7 +859,8 @@ public:
   addr_t get_pc() {
       return inst->pc;
   };
-#endif
 };
+#endif
 
 
+void dsrc0_Decode(Instruction* inst, uint32_t imm_, uint32_t dsrc0_, uint32_t src0, uint32_t reg_range = 1);

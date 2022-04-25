@@ -3,6 +3,7 @@
 #include <vector>
 #include <bitset>
 #include <deque>
+#include "inc/ExecTypes.h"
 #include "inc/ExecContext.h"
 // #include "../../libcuda/abstract_hardware_model.h"
 

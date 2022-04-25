@@ -48,6 +48,13 @@ void WarpState::setVreg(uint32_t vreg, uint32_t value, uint32_t lane_id)
 	m_vreg[vreg*m_warp_size + lane_id] = value;
 }
 
+uint32_t WarpState::getDmemStride(uint32_t sreg)
+{
+    uint32_t value = getSreg(sreg);
+    value = (value >> SREG_M0_STRIDE_BIT) & (0x1 << SREG_M0_STRIDE_WIDTH -1);
+    return value;
+}
+
 uint32_t WarpState::getBitmaskSreg(uint32_t sreg, uint32_t lane_id)
 {
 	uint32_t mask = 1;
@@ -68,14 +75,26 @@ void WarpState::setBitmaskSreg(uint32_t sreg, uint32_t value, uint32_t lane_id)
 	setSreg(sreg, new_field);
 }
 
+uint32_t WarpState::getReservedSreg(uint32_t sreg) {
+	uint32_t value;
+    assert(sreg < m_kernel_const_reg_num);
+	value = m_sreg[sreg];
+    return value;
+}
+
+// Sreg have a hole which is decoded as cons reg
 uint32_t WarpState::getSreg(uint32_t sreg)
 {
 	uint32_t value;
 
-    if (sreg < m_kernel_const_reg_num) {
-        value = getConst(sreg);
+    if (sreg < MAX_RESERVED_SREG_NUM) {
+	    value = m_sreg[sreg];
+        return value;
+    } else if (sreg < (m_kernel_const_reg_num + MAX_RESERVED_SREG_NUM)) {
+        value = getConst(sreg - MAX_RESERVED_SREG_NUM);
         return value;
     }
+    sreg -= m_kernel_const_reg_num;
 
 	assert(sreg >= 0);
 	assert(sreg != 104);
@@ -106,8 +125,16 @@ uint32_t WarpState::getSreg(uint32_t sreg)
 	return value;
 }
 
+// Sreg have a hole which is decoded as cons reg
 void WarpState::setSreg(uint32_t sreg, uint32_t value)
 {
+    // skip const write
+    if (sreg < MAX_RESERVED_SREG_NUM) {
+        assert("sreg is < MAX_RESERVED_SREG_NUM");
+    } else if(sreg > (m_kernel_const_reg_num + MAX_RESERVED_SREG_NUM)) {
+        sreg -= m_kernel_const_reg_num;
+    }
+
 	assert(sreg >= 0);
 	assert(sreg != 104);
 	assert(sreg != 105);
@@ -159,13 +186,36 @@ void WarpState::dumpVreg(std::stringstream &ss, uint32_t vreg, uint32_t data_siz
         if (w == 16) {
             ss << "         ";
         }
-        ss << "0x" << std::setw(data_size) << std::setfill('0') << getVreg(vreg, w);
+        if (g_debug_exec > 3 || ((w + 1) %16  < 5)) {
+            ss << "0x" << std::hex << std::setw(data_size) << std::setfill('0') << getVreg(vreg, w);
+        }
         if ((w + 1) % 16 == 0) {
             ss << "\n";
         } else {
             ss << " ";
         }
     }
+    // ss << "\n";
+}
+
+void WarpState::dumpDmem(std::stringstream &ss, uint32_t dreg, uint32_t lane_stride, uint32_t data_size) {
+    for (uint32_t w=0; w < m_warp_size; w++) {
+        if (w == 16) {
+            ss << "         ";
+        }
+        uint32_t value;
+        // FIXME adjust dreg per lane_id
+        if (g_debug_exec > 3 || ((w + 1) %16  < 5)) {
+            getDmem(dreg + lane_stride * w, 4, (char*)&value);
+            ss << "0x" << std::hex << std::setw(data_size) << std::setfill('0') << value;
+        }
+        if ((w + 1) % 16 == 0) {
+            ss << "\n";
+        } else {
+            ss << " ";
+        }
+    }
+    // ss << "\n";
 }
 
 void WarpState::dumpAddr(std::stringstream &ss, std::vector<uint64_t> &addr, uint32_t tmsk) {
@@ -303,10 +353,10 @@ void WarpState::setConstBuffer(uint32_t *const_buffer) {
 // use sreg[0,1] as param_base, sreg[2,3] as stack_pointer
 void WarpState::setStackPointer(uint64_t stack_pointer) {
     m_local_mem_stack_pointer = stack_pointer;
-    RegisterX2 regx2;
-    regx2.as_long = stack_pointer;
-    setSreg(0, regx2.reg[0].as_uint);
-    setSreg(1, regx2.reg[1].as_uint);
+    RegisterX2 value;
+    value.as_long = stack_pointer;
+    setSreg(0, value.as_reg[0].as_uint);
+    setSreg(1, value.as_reg[1].as_uint);
 }
 
 // Initialize a buffer resource descriptor

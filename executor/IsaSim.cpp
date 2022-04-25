@@ -4,6 +4,9 @@
 #include <algorithm>
 #include "../../libcuda/gpgpu_context.h"
 
+extern int  libcuda::g_debug_execution;
+int g_debug_exec;
+
 extern "C" IsaSim* make_isasim(libcuda::gpgpu_t* gpu, libcuda::gpgpu_context *ctx) {
   IsaSim* sim = new IsaSim(gpu, ctx);
   return sim;
@@ -75,7 +78,7 @@ void IsaSim::launch(DispatchInfo *disp_info, unsigned kernel_uid, bool openCL) {
 
   // FIXME since it in icache, it can setup in driver side or cp
   // fill kernel level const regs
-  uint32_t const_reg_num = KERNEL_CONST_REG_BASE ;
+  uint32_t const_reg_num = 0; // KERNEL_CONST_REG_BASE ;
   // below behavior is same as coasm, which kernel access reg in same way
   if ((kernel_ctrl >> KERNEL_CTRL_BIT_PARAM_BASE) & 0x1) {
       kernel->state()->setConstReg(0, kernel->state()->getParamAddr());
@@ -113,6 +116,7 @@ void IsaSim::launch(DispatchInfo *disp_info, unsigned kernel_uid, bool openCL) {
       const_reg_num++;
   }
   // FIXME add user_data register
+  g_debug_exec = libcuda::g_debug_execution;
 
   checkpoint *g_checkpoint;
   g_checkpoint = new checkpoint();

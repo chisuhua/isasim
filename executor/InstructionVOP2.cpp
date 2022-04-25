@@ -1,5 +1,7 @@
 #include "inc/Instruction.h"
 #include "inc/InstructionCommon.h"
+#include <cmath>
+#include <limits>
 
 #define OPCODE bytes.VOP2
 #define INST InstructionVOP2
@@ -7,140 +9,148 @@
 void INST::Decode(uint64_t _opcode) {
     bytes.dword = _opcode;
     info.op = OPCODE.op;
-	/* 0xFF indicates the use of a literal constant as a
-	 * source operand. */
-	if (OPCODE.src0 == 0xFF) {
-		m_size = 8;
-	} else if (OPCODE.op == 32) {
-	 /* the instruction */
+    is_VOP2 = true;
+
+	if (OPCODE.ext.e0_.ext_enc == 0x7) {
 		m_size = 8;
 	} else {
         bytes.word[1] = 0;
 		m_size = 4;
     }
+    num_dst_operands = 1;
+    num_src_operands = 2;
+    uint32_t src0_reg_range = 1;
+    uint32_t src1_reg_range = 1;
+    uint32_t dst_reg_range = 1;
+
+    if (info.op == OpcodeVOP2::V_MAC_F32
+        ) {
+        num_src_operands = 3;
+        operands_[Operand::SRC2] = std::make_shared<Operand>( Operand::DST,
+                Reg(OPCODE.vdst, dst_reg_range, Reg::Vector));
+    }
+
+    if (info.op == OpcodeVOP2::V_LSHL_B64 ||
+        info.op == OpcodeVOP2::V_ASHR_I64
+            ) {
+        src0_reg_range = 2;
+        dst_reg_range = 2;
+    }
+    if (info.op == OpcodeVOP2::V_ADD_F64 ||
+        info.op == OpcodeVOP2::V_ADD_I64_I64) {
+        src0_reg_range = 2;
+        src1_reg_range = 2;
+        dst_reg_range = 2;
+    }
+
+    dsrc0_Decode(this, OPCODE.imm_, OPCODE.dsrc0_, OPCODE.src0, src0_reg_range);
+#if 0
+    // FIXME m_size == 8
+    if (OPCODE.imm_ == 0x3) {
+        operands_[Operand::SRC0] = std::make_shared<Operand>(Operand::SRC0,
+                uint32_t(OPCODE.dsrc0_ << COMMON_ENC_max_src0_32e_width + OPCODE.src0));
+    } else if (OPCODE.dsrc0_ == COMMON_ENC_dsrc0_l) {
+	    int stride = 4;
+        operands_[Operand::SRC0] = std::make_shared<Operand>(Operand::SRC0,
+                Reg(OPCODE.src0, src0_reg_range, Reg::Data, stride));
+    } else if (OPCODE.dsrc0_ == COMMON_ENC_dsrc0_d) {
+	    int stride = 0;
+        operands_[Operand::SRC0] = std::make_shared<Operand>(Operand::SRC0,
+                Reg(OPCODE.src0, src0_reg_range, Reg::Data, stride));
+    } else if (OPCODE.dsrc0_ == COMMON_ENC_dsrc0_s) {
+        operands_[Operand::SRC0] = std::make_shared<Operand>(Operand::SRC0,
+                Reg(OPCODE.src0, src0_reg_range, Reg::Scalar));
+    } else {
+        operands_[Operand::SRC0] = std::make_shared<Operand>(Operand::SRC0,
+                Reg(OPCODE.src0, src0_reg_range, Reg::Vector));
+    }
+#endif
+    operands_[Operand::SRC1] = std::make_shared<Operand>(Operand::SRC1,
+                Reg(OPCODE.vsrc1, src1_reg_range, Reg::Vector));
+    operands_[Operand::DST] = std::make_shared<Operand>( Operand::DST,
+                Reg(OPCODE.vdst, dst_reg_range, Reg::Vector));
 }
 
 void INST::print() {
-    printf("op_enc(%lx): %s", info.op, opcode_str[info.op].c_str());
-    printf("\tv%d", OPCODE.vdst);
-    uint32_t src0;
-	// Load operand from register or as a literal constant.
-	if (OPCODE.src0 == 0xFF)
-        printf(" v%d", OPCODE.lit_const);
-	else {
-        if (OPCODE.ssrc0_ == 0)
-            printf(", s%d", OPCODE.src0);
-        else
-            printf(", v%d", OPCODE.src0);
-    }
-    printf(", v%d\n", OPCODE.vsrc1);
+    Instruction::print();
+    printVOP2(OPCODE);
 }
 
-void INST::dumpExecBegin(WarpState *w) {
+void INST::OperandCollect(WarpState *w) {
+    Instruction::OperandCollect(w);
 }
 
-void INST::dumpExecEnd(WarpState *w) {
+void INST::WriteBack(WarpState *w) {
+    Instruction::WriteBack(w);
 }
 
 /* D.u = VCC[i] ? S1.u : S0.u (i = threadID in wave); VOP3: specify VCC as a
  * scalar GPR in S2. */
-void INST::V_CNDMASK_B32(WarpState *item, uint32_t lane_id)
+void INST::V_CNDMASK_B32(WarpState *w, uint32_t lane_id)
 {
-	Register s0;
-	Register s1;
+	Register s0 = operands_[Operand::SRC0]->getValue(lane_id);
+	Register s1 = operands_[Operand::SRC1]->getValue(lane_id);
+
+	int vcci = w->getBitmaskSreg(RegisterVcc, lane_id);
+
 	Register result;
-
-	int vcci;
-
-	// Load operands from register or as a literal constant.
-	if (OPCODE.src0 == 0xFF)
-		s0.as_uint = OPCODE.lit_const;
-	else
-		s0.as_uint = ReadReg(OPCODE.src0);
-	s1.as_uint = ReadVReg(OPCODE.vsrc1, lane_id);
-	vcci = ReadBitmaskSReg(RegisterVcc, lane_id);
-
 	// Calculate the result.
 	result.as_uint = (vcci) ? s1.as_uint : s0.as_uint;
 
 	// Write the results.
-	WriteVReg(OPCODE.vdst, result.as_uint, lane_id);
-
+    operands_[Operand::DST]->setValue(result, lane_id);
 }
 
 // D.f = S0.f + S1.f.
-void INST::V_ADD_F32(WarpState *item, uint32_t lane_id)
+void INST::V_ADD_F32(WarpState *w, uint32_t lane_id)
 {
-	Register s0;
-	Register s1;
+	Register s0 = operands_[Operand::SRC0]->getValue(lane_id);
+	Register s1 = operands_[Operand::SRC1]->getValue(lane_id);
 	Register sum;
-
-	// Load operands from registers or as a literal constant.
-	if (OPCODE.src0 == 0xFF)
-		s0.as_uint = OPCODE.lit_const;
-	else
-		s0.as_uint = ReadReg(OPCODE.src0);
-	s1.as_uint = ReadVReg(OPCODE.vsrc1, lane_id);
 
 	// Calculate the sum.
 	sum.as_float = s0.as_float + s1.as_float;
 
 	// Write the results.
-	WriteVReg(OPCODE.vdst, sum.as_uint, lane_id);
-
+    operands_[Operand::DST]->setValue(sum, lane_id);
 }
 
 // D.f = S0.f - S1.f.
-void INST::V_SUB_F32(WarpState *item, uint32_t lane_id)
+void INST::V_SUB_F32(WarpState *w, uint32_t lane_id)
 {
-	Register s0;
-	Register s1;
+	Register s0 = operands_[Operand::SRC0]->getValue(lane_id);
+	Register s1 = operands_[Operand::SRC1]->getValue(lane_id);
 	Register dif;
-
-	// Load operands from registers or as a literal constant.
-	if (OPCODE.src0 == 0xFF)
-		s0.as_uint = OPCODE.lit_const;
-	else
-		s0.as_uint = ReadReg(OPCODE.src0);
-	s1.as_uint = ReadVReg(OPCODE.vsrc1, lane_id);
 
 	// Calculate the difference.
 	dif.as_float = s0.as_float - s1.as_float;
 
 	// Write the results.
-	WriteVReg(OPCODE.vdst, dif.as_uint, lane_id);
+    operands_[Operand::DST]->setValue(dif, lane_id);
 
 }
 
 // D.f = S1.f - S0.f.
-void INST::V_SUBREV_F32(WarpState *item, uint32_t lane_id)
+void INST::V_SUBREV_F32(WarpState *w, uint32_t lane_id)
 {
-	Register s0;
-	Register s1;
+	Register s0 = operands_[Operand::SRC0]->getValue(lane_id);
+	Register s1 = operands_[Operand::SRC1]->getValue(lane_id);
 	Register dif;
-
-	// Load operands from registers or as a literal constant.
-	if (OPCODE.src0 == 0xFF)
-		s0.as_uint = OPCODE.lit_const;
-	else
-		s0.as_uint = ReadReg(OPCODE.src0);
-	s1.as_uint = ReadVReg(OPCODE.vsrc1, lane_id);
 
 	// Calculate the difference.
 	dif.as_float = s1.as_float - s0.as_float;
 
 	// Write the results.
-	WriteVReg(OPCODE.vdst, dif.as_uint, lane_id);
-
+    operands_[Operand::DST]->setValue(dif, lane_id);
 }
 
 // D.f = S0.F * S1.f + D.f.
-// void INST::V_MAC_LEGACY_F32(WarpState *item, uint32_t lane_id)
+// void INST::V_MAC_LEGACY_F32(WarpState *w, uint32_t lane_id)
 
 
 // D.f = S0.f * S1.f (DX9 rules, 0.0*x = 0.0).
 /*
-void INST::V_MUL_LEGACY_F32(WarpState *item, uint32_t lane_id)
+void INST::V_MUL_LEGACY_F32(WarpState *w, uint32_t lane_id)
 {
 	Register s0;
 	Register s1;
@@ -170,40 +180,25 @@ void INST::V_MUL_LEGACY_F32(WarpState *item, uint32_t lane_id)
 */
 
 // D.f = S0.f * S1.f.
-void INST::V_MUL_F32(WarpState *item, uint32_t lane_id)
+void INST::V_MUL_F32(WarpState *w, uint32_t lane_id)
 {
-	Register s0;
-	Register s1;
+	Register s0 = operands_[Operand::SRC0]->getValue(lane_id);
+	Register s1 = operands_[Operand::SRC1]->getValue(lane_id);
 	Register product;
-
-	// Load operands from registers or as a literal constant.
-	if (OPCODE.src0 == 0xFF)
-		s0.as_uint = OPCODE.lit_const;
-	else
-		s0.as_uint = ReadReg(OPCODE.src0);
-	s1.as_uint = ReadVReg(OPCODE.vsrc1, lane_id);
 
 	// Calculate the product.
 	product.as_float = s0.as_float * s1.as_float;
 
 	// Write the results.
-	WriteVReg(OPCODE.vdst, product.as_uint, lane_id);
-
+    operands_[Operand::DST]->setValue(product, lane_id);
 }
 
 // D.i = S0.i[23:0] * S1.i[23:0].
-void INST::V_MUL_I32_I24(WarpState *item, uint32_t lane_id)
+void INST::V_MUL_I32_I24(WarpState *w, uint32_t lane_id)
 {
-	Register s0;
-	Register s1;
+	Register s0 = operands_[Operand::SRC0]->getValue(lane_id);
+	Register s1 = operands_[Operand::SRC1]->getValue(lane_id);
 	Register product;
-
-	// Load operands from registers or as a literal constant.
-	if (OPCODE.src0 == 0xFF)
-		s0.as_uint = OPCODE.lit_const;
-	else
-		s0.as_uint = ReadReg(OPCODE.src0);
-	s1.as_uint = ReadVReg(OPCODE.vsrc1, lane_id);
 
 	// Truncate operands to 24-bit signed integers
 	s0.as_uint = SignExtend(s0.as_uint, 24);
@@ -213,48 +208,33 @@ void INST::V_MUL_I32_I24(WarpState *item, uint32_t lane_id)
 	product.as_int = s0.as_int * s1.as_int;
 
 	// Write the results.
-	WriteVReg(OPCODE.vdst, product.as_uint, lane_id);
-
+    operands_[Operand::DST]->setValue(product, lane_id);
 }
 
-void INST::V_MULLO_I32_I32(WarpState *item, uint32_t lane_id)
+void INST::V_MULLO_I32_I32(WarpState *w, uint32_t lane_id)
 {
-	Register s0;
-	Register s1;
-	Register product;
-
 	// Load operands from registers or as a literal constant.
-	if (OPCODE.src0 == 0xFF)
-		s0.as_uint = OPCODE.lit_const;
-	else
-		s0.as_uint = ReadReg(OPCODE.src0);
-	s1.as_uint = ReadVReg(OPCODE.vsrc1, lane_id);
+	Register s0 = operands_[Operand::SRC0]->getValue(lane_id);
+	Register s1 = operands_[Operand::SRC1]->getValue(lane_id);
 
 	// Truncate operands to 24-bit signed integers
 	s0.as_uint = SignExtend(s0.as_uint, 24);
 	s1.as_uint = SignExtend(s1.as_uint, 24);
 
+	Register product;
 	// Calculate the product.
 	product.as_int = s0.as_int * s1.as_int;
 
 	// Write the results.
-	WriteVReg(OPCODE.vdst, product.as_uint, lane_id);
-
+    operands_[Operand::DST]->setValue(product, lane_id);
 }
 
 // D.f = min(S0.f, S1.f).
-void INST::V_MIN_F32(WarpState *item, uint32_t lane_id)
+void INST::V_MIN_F32(WarpState *w, uint32_t lane_id)
 {
-	Register s0;
-	Register s1;
+	Register s0 = operands_[Operand::SRC0]->getValue(lane_id);
+	Register s1 = operands_[Operand::SRC1]->getValue(lane_id);
 	Register min;
-
-	// Load operands from registers or as a literal constant.
-	if (OPCODE.src0 == 0xFF)
-		s0.as_uint = OPCODE.lit_const;
-	else
-		s0.as_uint = ReadReg(OPCODE.src0);
-	s1.as_uint = ReadVReg(OPCODE.vsrc1, lane_id);
 
 	// Calculate the minimum operand.
 	if (s0.as_float < s1.as_float)
@@ -267,23 +247,15 @@ void INST::V_MIN_F32(WarpState *item, uint32_t lane_id)
 	}
 
 	// Write the results.
-	WriteVReg(OPCODE.vdst, min.as_uint, lane_id);
-
+    operands_[Operand::DST]->setValue(min, lane_id);
 }
 
 // D.f = max(S0.f, S1.f).
-void INST::V_MAX_F32(WarpState *item, uint32_t lane_id)
+void INST::V_MAX_F32(WarpState *w, uint32_t lane_id)
 {
-	Register s0;
-	Register s1;
+	Register s0 = operands_[Operand::SRC0]->getValue(lane_id);
+	Register s1 = operands_[Operand::SRC1]->getValue(lane_id);
 	Register max;
-
-	// Load operands from registers or as a literal constant.
-	if (OPCODE.src0 == 0xFF)
-		s0.as_uint = OPCODE.lit_const;
-	else
-		s0.as_uint = ReadReg(OPCODE.src0);
-	s1.as_uint = ReadVReg(OPCODE.vsrc1, lane_id);
 
 	// Calculate the minimum operand.
 	if (s0.as_float > s1.as_float)
@@ -296,23 +268,15 @@ void INST::V_MAX_F32(WarpState *item, uint32_t lane_id)
 	}
 
 	// Write the results.
-	WriteVReg(OPCODE.vdst, max.as_uint, lane_id);
-
+    operands_[Operand::DST]->setValue(max, lane_id);
 }
 
 // D.i = max(S0.i, S1.i).
-void INST::V_MAX_I32(WarpState *item, uint32_t lane_id)
+void INST::V_MAX_I32(WarpState *w, uint32_t lane_id)
 {
-	Register s0;
-	Register s1;
+	Register s0 = operands_[Operand::SRC0]->getValue(lane_id);
+	Register s1 = operands_[Operand::SRC1]->getValue(lane_id);
 	Register max;
-
-	// Load operands from registers or as a literal constant.
-	if (OPCODE.src0 == 0xFF)
-		s0.as_uint = OPCODE.lit_const;
-	else
-		s0.as_uint = ReadReg(OPCODE.src0);
-	s1.as_uint = ReadVReg(OPCODE.vsrc1, lane_id);
 
 	// Calculate the minimum operand.
 	if (s0.as_int > s1.as_int)
@@ -325,23 +289,15 @@ void INST::V_MAX_I32(WarpState *item, uint32_t lane_id)
 	}
 
 	// Write the results.
-	WriteVReg(OPCODE.vdst, max.as_uint, lane_id);
-
+    operands_[Operand::DST]->setValue(max, lane_id);
 }
 
 // D.i = min(S0.i, S1.i).
-void INST::V_MIN_I32(WarpState *item, uint32_t lane_id)
+void INST::V_MIN_I32(WarpState *w, uint32_t lane_id)
 {
-	Register s0;
-	Register s1;
+	Register s0 = operands_[Operand::SRC0]->getValue(lane_id);
+	Register s1 = operands_[Operand::SRC1]->getValue(lane_id);
 	Register min;
-
-	// Load operands from registers or as a literal constant.
-	if (OPCODE.src0 == 0xFF)
-		s0.as_uint = OPCODE.lit_const;
-	else
-		s0.as_uint = ReadReg(OPCODE.src0);
-	s1.as_uint = ReadVReg(OPCODE.vsrc1, lane_id);
 
 	// Calculate the minimum operand.
 	if (s0.as_int < s1.as_int)
@@ -354,23 +310,15 @@ void INST::V_MIN_I32(WarpState *item, uint32_t lane_id)
 	}
 
 	// Write the results.
-	WriteVReg(OPCODE.vdst, min.as_uint, lane_id);
-
+    operands_[Operand::DST]->setValue(min, lane_id);
 }
 
 // D.u = min(S0.u, S1.u).
-void INST::V_MIN_U32(WarpState *item, uint32_t lane_id)
+void INST::V_MIN_U32(WarpState *w, uint32_t lane_id)
 {
-	Register s0;
-	Register s1;
+	Register s0 = operands_[Operand::SRC0]->getValue(lane_id);
+	Register s1 = operands_[Operand::SRC1]->getValue(lane_id);
 	Register min;
-
-	// Load operands from registers or as a literal constant.
-	if (OPCODE.src0 == 0xFF)
-		s0.as_uint = OPCODE.lit_const;
-	else
-		s0.as_uint = ReadReg(OPCODE.src0);
-	s1.as_uint = ReadVReg(OPCODE.vsrc1, lane_id);
 
 	// Calculate the minimum operand.
 	if (s0.as_uint < s1.as_uint)
@@ -383,23 +331,15 @@ void INST::V_MIN_U32(WarpState *item, uint32_t lane_id)
 	}
 
 	// Write the results.
-	WriteVReg(OPCODE.vdst, min.as_uint, lane_id);
-
+    operands_[Operand::DST]->setValue(min, lane_id);
 }
 
 // D.u = max(S0.u, S1.u).
-void INST::V_MAX_U32(WarpState *item, uint32_t lane_id)
+void INST::V_MAX_U32(WarpState *w, uint32_t lane_id)
 {
-	Register s0;
-	Register s1;
+	Register s0 = operands_[Operand::SRC0]->getValue(lane_id);
+	Register s1 = operands_[Operand::SRC1]->getValue(lane_id);
 	Register max;
-
-	// Load operands from registers or as a literal constant.
-	if (OPCODE.src0 == 0xFF)
-		s0.as_uint = OPCODE.lit_const;
-	else
-		s0.as_uint = ReadReg(OPCODE.src0);
-	s1.as_uint = ReadVReg(OPCODE.vsrc1, lane_id);
 
 	// Calculate the maximum operand.
 	if (s0.as_uint > s1.as_uint)
@@ -412,218 +352,137 @@ void INST::V_MAX_U32(WarpState *item, uint32_t lane_id)
 	}
 
 	// Write the results.
-	WriteVReg(OPCODE.vdst, max.as_uint, lane_id);
-
+    operands_[Operand::DST]->setValue(max, lane_id);
 }
 
 // D.u = S1.u >> S0.u[4:0].
-void INST::V_LSHRREV_B32(WarpState *item, uint32_t lane_id)
+void INST::V_LSHRREV_B32(WarpState *w, uint32_t lane_id)
 {
-	Register s0;
-	Register s1;
+	Register s0 = operands_[Operand::SRC0]->getValue(lane_id);
+	Register s1 = operands_[Operand::SRC1]->getValue(lane_id);
 	Register result;
-
-	// Load operands from registers or as a literal constant.
-	if (OPCODE.src0 == 0xFF)
-	{
-		assert(OPCODE.lit_const < 32);
-		s0.as_uint = OPCODE.lit_const;
-	}
-	else
-	{
-		s0.as_uint = ReadReg(OPCODE.src0) & 0x1F;
-	}
-	s1.as_uint = ReadVReg(OPCODE.vsrc1, lane_id);
 
 	// Right shift s1 by s0.
 	result.as_uint = s1.as_uint >> s0.as_uint;
 
 	// Write the results.
-	WriteVReg(OPCODE.vdst, result.as_uint, lane_id);
-
+    operands_[Operand::DST]->setValue(result, lane_id);
 }
 
 // D.i = S1.i >> S0.i[4:0].
-void INST::V_ASHRREV_I32(WarpState *item, uint32_t lane_id)
+void INST::V_ASHRREV_I32(WarpState *w, uint32_t lane_id)
 {
-	Register s0;
-	Register s1;
+	Register s0 = operands_[Operand::SRC0]->getValue(lane_id);
+	Register s1 = operands_[Operand::SRC1]->getValue(lane_id);
 	Register result;
-
-	// Load operands from registers or as a literal constant.
-	if (OPCODE.src0 == 0xFF)
-	{
-		assert(OPCODE.lit_const < 32);
-		s0.as_uint = OPCODE.lit_const & 0x1F;
-	}
-	else
-	{
-		s0.as_uint = ReadReg(OPCODE.src0) & 0x1F;
-	}
-	s1.as_uint = ReadVReg(OPCODE.vsrc1, lane_id);
 
 	// Right shift s1 by s0.
 	result.as_int = s1.as_int >> s0.as_int;
 
 	// Write the results.
-	WriteVReg(OPCODE.vdst, result.as_uint, lane_id);
-
+    operands_[Operand::DST]->setValue(result, lane_id);
 }
 
 // D.u = S0.u << S1.u[4:0].
-void INST::V_LSHL_B32(WarpState *item, uint32_t lane_id)
+void INST::V_LSHL_B32(WarpState *w, uint32_t lane_id)
 {
-	Register s0;
-	Register s1;
+	Register s0 = operands_[Operand::SRC0]->getValue(lane_id);
+	Register s1 = operands_[Operand::SRC1]->getValue(lane_id);
 	Register result;
-
-	// Load operands from registers or as a literal constant.
-	if (OPCODE.src0 == 0xFF)
-		s0.as_uint = OPCODE.lit_const;
-	else
-		s0.as_uint = ReadReg(OPCODE.src0);
-	s1.as_uint = ReadVReg(OPCODE.vsrc1, lane_id) & 0x1F;
 
 	// Left shift s1 by s0.
 	result.as_uint = s0.as_uint << s1.as_uint;
 
 	// Write the results.
-	WriteVReg(OPCODE.vdst, result.as_uint, lane_id);
-
+    operands_[Operand::DST]->setValue(result, lane_id);
 }
 
 // D.u = S1.u << S0.u[4:0].
-void INST::V_LSHLREV_B32(WarpState *item, uint32_t lane_id)
+void INST::V_LSHLREV_B32(WarpState *w, uint32_t lane_id)
 {
-	Register s0;
-	Register s1;
+	Register s0 = operands_[Operand::SRC0]->getValue(lane_id);
+	Register s1 = operands_[Operand::SRC1]->getValue(lane_id);
 	Register result;
-
-	// Load operands from registers or as a literal constant.
-	if (OPCODE.src0 == 0xFF)
-	{
-		assert(OPCODE.lit_const < 32);
-		s0.as_uint = OPCODE.lit_const;
-	}
-	else
-	{
-		s0.as_uint = ReadReg(OPCODE.src0) & 0x1F;
-	}
-	s1.as_uint = ReadVReg(OPCODE.vsrc1, lane_id);
 
 	// Left shift s1 by s0.
 	result.as_uint = s1.as_uint << s0.as_uint;
 
 	// Write the results.
-	WriteVReg(OPCODE.vdst, result.as_uint, lane_id);
+    operands_[Operand::DST]->setValue(result, lane_id);
 
 }
 
 // D.u = S0.u & S1.u.
-void INST::V_AND_B32(WarpState *item, uint32_t lane_id)
+void INST::V_AND_B32(WarpState *w, uint32_t lane_id)
 {
-	Register s0;
-	Register s1;
+	Register s0 = operands_[Operand::SRC0]->getValue(lane_id);
+	Register s1 = operands_[Operand::SRC1]->getValue(lane_id);
 	Register result;
-
-	// Load operands from registers or as a literal constant.
-	if (OPCODE.src0 == 0xFF)
-	{
-		s0.as_uint = OPCODE.lit_const;
-	}
-	else
-	{
-		s0.as_uint = ReadReg(OPCODE.src0);
-	}
-	s1.as_uint = ReadVReg(OPCODE.vsrc1, lane_id);
 
 	// Bitwise OR the two operands.
 	result.as_uint = s0.as_uint & s1.as_uint;
 
 	// Write the results.
-	WriteVReg(OPCODE.vdst, result.as_uint, lane_id);
-
+    operands_[Operand::DST]->setValue(result, lane_id);
 }
 
 // D.u = S0.u | S1.u.
-void INST::V_OR_B32(WarpState *item, uint32_t lane_id)
+void INST::V_OR_B32(WarpState *w, uint32_t lane_id)
 {
-	Register s0;
-	Register s1;
+	Register s0 = operands_[Operand::SRC0]->getValue(lane_id);
+	Register s1 = operands_[Operand::SRC1]->getValue(lane_id);
 	Register result;
-
-	// Load operands from registers or as a literal constant.
-	if (OPCODE.src0 == 0xFF)
-		s0.as_uint = OPCODE.lit_const;
-	else
-		s0.as_uint = ReadReg(OPCODE.src0);
-	s1.as_uint = ReadVReg(OPCODE.vsrc1, lane_id);
 
 	// Bitwise OR the two operands.
 	result.as_uint = s0.as_uint | s1.as_uint;
 
 	// Write the results.
-	WriteVReg(OPCODE.vdst, result.as_uint, lane_id);
+    operands_[Operand::DST]->setValue(result, lane_id);
 
 }
 
 // D.u = S0.u ^ S1.u.
-void INST::V_XOR_B32(WarpState *item, uint32_t lane_id)
+void INST::V_XOR_B32(WarpState *w, uint32_t lane_id)
 {
-	Register s0;
-	Register s1;
+	Register s0 = operands_[Operand::SRC0]->getValue(lane_id);
+	Register s1 = operands_[Operand::SRC1]->getValue(lane_id);
 	Register result;
-
-	// Load operands from registers or as a literal constant.
-	if (OPCODE.src0 == 0xFF)
-		s0.as_uint = OPCODE.lit_const;
-	else
-		s0.as_uint = ReadReg(OPCODE.src0);
-	s1.as_uint = ReadVReg(OPCODE.vsrc1, lane_id);
 
 	// Bitwise OR the two operands.
 	result.as_uint = s0.as_uint ^ s1.as_uint;
 
 	// Write the results.
-	WriteVReg(OPCODE.vdst, result.as_uint, lane_id);
+    operands_[Operand::DST]->setValue(result, lane_id);
 
 }
 
 //D.u = ((1<<S0.u[4:0])-1) << S1.u[4:0]; S0=bitfield_width, S1=bitfield_offset.
-void INST::V_BFM_B32(WarpState *item, uint32_t lane_id)
+void INST::V_BFM_B32(WarpState *w, uint32_t lane_id)
 {
-	ISAUnimplemented(item);
+	ISAUnimplemented(w);
 }
 
 // D.f = S0.f * S1.f + D.f.
-void INST::V_MAC_F32(WarpState *item, uint32_t lane_id)
+void INST::V_MAC_F32(WarpState *w, uint32_t lane_id)
 {
-	Register s0;
-	Register s1;
-	Register dst;
+	Register s0 = operands_[Operand::SRC0]->getValue(lane_id);
+	Register s1 = operands_[Operand::SRC1]->getValue(lane_id);
+	Register dst = operands_[Operand::SRC2]->getValue(lane_id);
 	Register result;
-
-	// Load operands from registers or as a literal constant.
-	if (OPCODE.src0 == 0xFF)
-		s0.as_uint = OPCODE.lit_const;
-	else
-		s0.as_uint = ReadReg(OPCODE.src0);
-	s1.as_uint = ReadVReg(OPCODE.vsrc1, lane_id);
-	dst.as_uint = ReadVReg(OPCODE.vdst, lane_id);
 
 	// Calculate the result.
 	result.as_float = s0.as_float * s1.as_float + dst.as_float;
 
 	// Write the results.
-	WriteVReg(OPCODE.vdst, result.as_uint, lane_id);
-
+    operands_[Operand::DST]->setValue(result, lane_id);
 }
 
+#if 0
 // D.f = S0.f * K + S1.f; K is a 32-bit inline constant
-void INST::V_MADMK_F32(WarpState *item, uint32_t lane_id)
+void INST::V_MADMK_F32(WarpState *w, uint32_t lane_id)
 {
-	Register s0;
-	Register s1;
+	Register s0 = operands_[Operand::SRC0]->getValue(lane_id);
+	Register s1 = operands_[Operand::SRC1]->getValue(lane_id);
 	Register K;
 	Register dst;
 
@@ -637,23 +496,16 @@ void INST::V_MADMK_F32(WarpState *item, uint32_t lane_id)
 
 	// Write the results.
 	WriteVReg(OPCODE.vdst, dst.as_uint, lane_id);
-
 }
+#endif
 
 // D.u = S0.u + S1.u, vcc = carry-out.
-void INST::V_ADD_I32_I32(WarpState *item, uint32_t lane_id)
+void INST::V_ADD_I32_I32(WarpState *w, uint32_t lane_id)
 {
-	Register s0;
-	Register s1;
+	Register s0 = operands_[Operand::SRC0]->getValue(lane_id);
+	Register s1 = operands_[Operand::SRC1]->getValue(lane_id);
 	Register sum;
 	Register carry;
-
-	// Load operands from registers or as a literal constant.
-	if (OPCODE.src0 == 0xFF)
-		s0.as_uint = OPCODE.lit_const;
-	else
-		s0.as_uint = ReadReg(OPCODE.src0);
-	s1.as_uint = ReadVReg(OPCODE.vsrc1, lane_id);
 
 	// Calculate the sum and carry.
 	sum.as_int = s0.as_int + s1.as_int;
@@ -661,51 +513,50 @@ void INST::V_ADD_I32_I32(WarpState *item, uint32_t lane_id)
 		! !(((long long) s0.as_int + (long long) s1.as_int) >> 32);
 
 	// Write the results.
-	WriteVReg(OPCODE.vdst, sum.as_uint, lane_id);
-	WriteBitmaskSReg(RegisterVcc, carry.as_uint, lane_id);
-
+    operands_[Operand::DST]->setValue(sum, lane_id);
+	w->setBitmaskSreg(RegisterVcc, carry.as_uint, lane_id);
 }
 
 // D.u = S0.u + S1.u, vcc = carry-out.
-void INST::V_ADD_U32(WarpState *item, uint32_t lane_id)
+void INST::V_ADD_I64_I64(WarpState *w, uint32_t lane_id)
 {
-	Register s0;
-	Register s1;
-	Register sum;
+	union
+	{
+		int64_t as_i64;
+		unsigned as_reg[2];
+	} s0, s1, sum;
+
+    std::vector<Register> src0 = operands_[Operand::SRC0]->getValueX(lane_id);
+    std::vector<Register> src1 = operands_[Operand::SRC1]->getValueX(lane_id);
+    std::vector<Register> result(2);
+
 	// Register carry;
 
-	// Load operands from registers or as a literal constant.
-	if (OPCODE.src0 == 0xFF)
-		s0.as_uint = OPCODE.lit_const;
-	else
-		s0.as_uint = ReadReg(OPCODE.src0);
-	s1.as_uint = ReadVReg(OPCODE.vsrc1, lane_id);
+    s0.as_reg[0] = src0[0].as_uint;
+    s0.as_reg[1] = src0[1].as_uint;
+    s1.as_reg[0] = src1[0].as_uint;
+    s1.as_reg[1] = src1[1].as_uint;
 
 	// Calculate the sum and carry.
-	sum.as_uint = s0.as_uint + s1.as_uint;
+	sum.as_i64 = s0.as_i64 + s1.as_i64;
+    result[0].as_uint = sum.as_reg[0];
+    result[1].as_uint = sum.as_reg[1];
+    // FIXME
 	// carry.as_uint =
-	//	! !(((long long) s0.as_uint + (long long) s1.as_uint) >> 32);
+	//	! !(((long long) s0.as_int + (long long) s1.as_int) >> 32);
 
 	// Write the results.
-	WriteVReg(OPCODE.vdst, sum.as_uint, lane_id);
-	// WriteBitmaskSReg(RegisterVcc, carry.as_uint);
-
+    operands_[Operand::DST]->setValueX(result, lane_id);
+	// w->setBitmaskSreg(RegisterVcc, carry.as_uint, lane_id);
 }
 
 // D.u = S0.u + S1.u, vcc = carry-out.
-void INST::V_ADDCO_U32(WarpState *item, uint32_t lane_id)
+void INST::V_ADD_U32(WarpState *w, uint32_t lane_id)
 {
-	Register s0;
-	Register s1;
+	Register s0 = operands_[Operand::SRC0]->getValue(lane_id);
+	Register s1 = operands_[Operand::SRC1]->getValue(lane_id);
 	Register sum;
 	Register carry;
-
-	// Load operands from registers or as a literal constant.
-	if (OPCODE.src0 == 0xFF)
-		s0.as_uint = OPCODE.lit_const;
-	else
-		s0.as_uint = ReadReg(OPCODE.src0);
-	s1.as_uint = ReadVReg(OPCODE.vsrc1, lane_id);
 
 	// Calculate the sum and carry.
 	sum.as_uint = s0.as_uint + s1.as_uint;
@@ -713,113 +564,102 @@ void INST::V_ADDCO_U32(WarpState *item, uint32_t lane_id)
 		! !(((long long) s0.as_uint + (long long) s1.as_uint) >> 32);
 
 	// Write the results.
-	WriteVReg(OPCODE.vdst, sum.as_uint, lane_id);
-	WriteBitmaskSReg(RegisterVcc, carry.as_uint, lane_id);
+    operands_[Operand::DST]->setValue(sum, lane_id);
+	w->setBitmaskSreg(RegisterVcc, carry.as_uint, lane_id);
+}
 
+// D.u = S0.u + S1.u, vcc = carry-out.
+void INST::V_ADDCO_U32(WarpState *w, uint32_t lane_id)
+{
+	Register s0 = operands_[Operand::SRC0]->getValue(lane_id);
+	Register s1 = operands_[Operand::SRC1]->getValue(lane_id);
+	Register sum;
+	Register carry;
+
+	// Calculate the sum and carry.
+	sum.as_uint = s0.as_uint + s1.as_uint;
+	carry.as_uint =
+		! !(((long long) s0.as_uint + (long long) s1.as_uint) >> 32);
+
+	// Write the results.
+    operands_[Operand::DST]->setValue(sum, lane_id);
+	w->setBitmaskSreg(RegisterVcc, carry.as_uint, lane_id);
 }
 
 // D.u = S0.u - S1.u; vcc = carry-out.
-void INST::V_SUB_I32(WarpState *item, uint32_t lane_id)
+void INST::V_SUB_I32(WarpState *w, uint32_t lane_id)
 {
-	Register s0;
-	Register s1;
+	Register s0 = operands_[Operand::SRC0]->getValue(lane_id);
+	Register s1 = operands_[Operand::SRC1]->getValue(lane_id);
 	Register dif;
 	Register carry;
-
-	// Load operands from registers or as a literal constant.
-	if (OPCODE.src0 == 0xFF)
-		s0.as_uint = OPCODE.lit_const;
-	else
-		s0.as_uint = ReadReg(OPCODE.src0);
-	s1.as_uint = ReadVReg(OPCODE.vsrc1, lane_id);
 
 	// Calculate the difference and carry.
 	dif.as_uint = s0.as_int - s1.as_int;
 	carry.as_uint = (s1.as_int > s0.as_int);
 
 	// Write the results.
-	WriteVReg(OPCODE.vdst, dif.as_uint, lane_id);
-	WriteBitmaskSReg(RegisterVcc, carry.as_uint, lane_id);
+    operands_[Operand::DST]->setValue(dif, lane_id);
+	w->setBitmaskSreg(RegisterVcc, carry.as_uint, lane_id);
 
 }
 
 // D.u = S0.u - S1.u; vcc = carry-out.
-void INST::V_SUB_U32(WarpState *item, uint32_t lane_id)
+void INST::V_SUB_U32(WarpState *w, uint32_t lane_id)
 {
-	Register s0;
-	Register s1;
+	Register s0 = operands_[Operand::SRC0]->getValue(lane_id);
+	Register s1 = operands_[Operand::SRC1]->getValue(lane_id);
 	Register dif;
 	Register carry;
-
-	// Load operands from registers or as a literal constant.
-	if (OPCODE.src0 == 0xFF)
-		s0.as_uint = OPCODE.lit_const;
-	else
-		s0.as_uint = ReadReg(OPCODE.src0);
-	s1.as_uint = ReadVReg(OPCODE.vsrc1, lane_id);
 
 	// Calculate the difference and carry.
 	dif.as_uint = s0.as_uint - s1.as_uint;
 	carry.as_uint = (s1.as_uint > s0.as_uint);
 
 	// Write the results.
-	WriteVReg(OPCODE.vdst, dif.as_uint, lane_id);
-	WriteBitmaskSReg(RegisterVcc, carry.as_uint, lane_id);
+    operands_[Operand::DST]->setValue(dif, lane_id);
+	w->setBitmaskSreg(RegisterVcc, carry.as_uint, lane_id);
 
 }
 
 // D.u = S1.u - S0.u; vcc = carry-out.
-void INST::V_SUBREV_I32(WarpState *item, uint32_t lane_id)
+void INST::V_SUBREV_I32(WarpState *w, uint32_t lane_id)
 {
-	Register s0;
-	Register s1;
+	Register s0 = operands_[Operand::SRC0]->getValue(lane_id);
+	Register s1 = operands_[Operand::SRC1]->getValue(lane_id);
 	Register dif;
 	Register carry;
-
-	// Load operands from registers or as a literal constant.
-	if (OPCODE.src0 == 0xFF)
-		s0.as_uint = OPCODE.lit_const;
-	else
-		s0.as_uint = ReadReg(OPCODE.src0);
-	s1.as_uint = ReadVReg(OPCODE.vsrc1, lane_id);
 
 	// Calculate the difference and carry.
 	dif.as_int = s1.as_int - s0.as_int;
 	carry.as_uint = (s0.as_int > s1.as_int);
 
 	// Write the results.
-	WriteVReg(OPCODE.vdst, dif.as_uint, lane_id);
-	WriteBitmaskSReg(RegisterVcc, carry.as_uint, lane_id);
+    operands_[Operand::DST]->setValue(dif, lane_id);
+	w->setBitmaskSreg(RegisterVcc, carry.as_uint, lane_id);
 
 }
 
-void INST::V_SUBREV_U32(WarpState *item, uint32_t lane_id)
+void INST::V_SUBREV_U32(WarpState *w, uint32_t lane_id)
 {
-	Register s0;
-	Register s1;
+	Register s0 = operands_[Operand::SRC0]->getValue(lane_id);
+	Register s1 = operands_[Operand::SRC1]->getValue(lane_id);
 	Register dif;
 	Register carry;
-
-	// Load operands from registers or as a literal constant.
-	if (OPCODE.src0 == 0xFF)
-		s0.as_uint = OPCODE.lit_const;
-	else
-		s0.as_uint = ReadReg(OPCODE.src0);
-	s1.as_uint = ReadVReg(OPCODE.vsrc1, lane_id);
 
 	// Calculate the difference and carry.
 	dif.as_uint = s1.as_uint - s0.as_uint;
 	carry.as_uint = (s0.as_uint > s1.as_uint);
 
 	// Write the results.
-	WriteVReg(OPCODE.vdst, dif.as_uint, lane_id);
-	WriteBitmaskSReg(RegisterVcc, carry.as_uint, lane_id);
+    operands_[Operand::DST]->setValue(dif, lane_id);
+	w->setBitmaskSreg(RegisterVcc, carry.as_uint, lane_id);
 
 }
 
 // D = {flt32_to_flt16(S1.f),flt32_to_flt16(S0.f)}, with round-toward-zero.
 /*
-void INST::V_CVT_PKRTZ_F16_F32(WarpState *item, uint32_t lane_id)
+void INST::V_CVT_PKRTZ_F16_F32(WarpState *w, uint32_t lane_id)
 {
 	union hfpack
 	{
@@ -855,4 +695,183 @@ void INST::V_CVT_PKRTZ_F16_F32(WarpState *item, uint32_t lane_id)
 
 }
 */
+// D = S0.u >> S1.u[4:0] (Arithmetic shift)
+void INST::V_ASHR_I64(WarpState *item, uint32_t lane_id)
+{
+	union
+	{
+		long long as_i64;
+		unsigned as_reg[2];
+
+	} s0, value;
+
+    std::vector<Register> src0 = operands_[Operand::SRC0]->getValueX(lane_id);
+    Register s1 = operands_[Operand::SRC1]->getValue(lane_id);
+
+    std::vector<Register> result(2);
+/* TODO
+	assert(!OPCODE.clamp);
+	assert(!OPCODE.omod);
+	assert(!OPCODE.neg);
+	assert(!OPCODE.abs);
+*/
+	// Load operands from registers.
+	s0.as_reg[0] = src0[0].as_uint;
+	s0.as_reg[1] = src0[1].as_uint;
+	s1.as_uint = s1.as_uint & 0x1F;
+
+	// Shift s0.
+	value.as_i64 = s0.as_i64 >> s1.as_uint;
+
+	// Write the results.
+	result[0].as_uint = value.as_reg[0];
+	result[1].as_uint = value.as_reg[1];
+
+    operands_[Operand::DST]->setValueX(result, lane_id);
+}
+
+// D.d = S0.d + S1.d.
+void INST::V_ADD_F64(WarpState *item, uint32_t lane_id)
+{
+	union
+	{
+		double as_double;
+		unsigned as_reg[2];
+
+	} s0, s1, value;
+
+    std::vector<Register> src0 = operands_[Operand::SRC0]->getValueX(lane_id);
+    std::vector<Register> src1 = operands_[Operand::SRC1]->getValueX(lane_id);
+
+/* FIXME
+	assert(!OPCODE.clamp);
+	assert(!OPCODE.omod);
+	assert(!OPCODE.neg);
+	assert(!OPCODE.abs);
+*/
+	s0.as_reg[0] = src0[0].as_uint;
+	s0.as_reg[1] = src0[1].as_uint;
+	s1.as_reg[0] = src1[0].as_uint;
+	s1.as_reg[1] = src1[1].as_uint;
+
+	// Add the operands, take into account special number cases.
+
+	// s0 == NaN64 || s1 == NaN64
+	if (std::fpclassify(s0.as_double) == FP_NAN ||
+		std::fpclassify(s1.as_double) == FP_NAN)
+	{
+		// value <-- NaN64
+		value.as_double = NAN;
+	}
+	// s0,s1 == infinity
+	else if (std::fpclassify(s0.as_double) == FP_INFINITE &&
+		std::fpclassify(s1.as_double) == FP_INFINITE)
+	{
+		// value <-- NaN64
+		value.as_double = NAN;
+	}
+	// s0,!s1 == infinity
+	else if (std::fpclassify(s0.as_double) == FP_INFINITE)
+	{
+		// value <-- s0(+-infinity)
+		value.as_double = s0.as_double;
+	}
+	// s1,!s0 == infinity
+	else if (std::fpclassify(s1.as_double) == FP_INFINITE)
+	{
+		// value <-- s1(+-infinity)
+		value.as_double = s1.as_double;
+	}
+	// s0 == +-denormal, +-0
+	else if (std::fpclassify(s0.as_double) == FP_SUBNORMAL ||
+		std::fpclassify(s0.as_double) == FP_ZERO)
+	{
+		// s1 == +-denormal, +-0
+		if (std::fpclassify(s1.as_double) == FP_SUBNORMAL ||
+			std::fpclassify(s1.as_double) == FP_ZERO)
+			// s0 && s1 == -denormal, -0
+			if (std::signbit(s0.as_double)
+				&& std::signbit(s1.as_double))
+				// value <-- -0
+				value.as_double = -0;
+			else
+				// value <-- +0
+				value.as_double = +0;
+		// s1 == F
+		else
+			// value <-- s1
+			value.as_double = s1.as_double;
+	}
+	// s1 == +-denormal, +-0
+	else if (std::fpclassify(s1.as_double) == FP_SUBNORMAL ||
+		std::fpclassify(s1.as_double) == FP_ZERO)
+	{
+		// s0 == +-denormal, +-0
+		if (std::fpclassify(s0.as_double) == FP_SUBNORMAL ||
+			std::fpclassify(s0.as_double) == FP_ZERO)
+			// s0 && s1 == -denormal, -0
+			if (std::signbit(s0.as_double)
+				&& std::signbit(s1.as_double))
+				// value <-- -0
+				value.as_double = -0;
+			else
+				// value <-- +0
+				value.as_double = +0;
+		// s0 == F
+		else
+			// value <-- s1
+			value.as_double = s0.as_double;
+	}
+	// s0 && s1 == F
+	else
+	{
+		value.as_double = s0.as_double + s1.as_double;
+	}
+
+    std::vector<Register> result(2);
+	// Write the results.
+	result[0].as_uint = value.as_reg[0];
+	result[1].as_uint = value.as_reg[1];
+
+    operands_[Operand::DST]->setValueX(result, lane_id);
+}
+
+void INST::V_LSHL_B64(WarpState *item, uint32_t lane_id)
+{
+	// Input operands
+	union
+	{
+		double as_double;
+		unsigned int as_reg[2];
+		unsigned int as_uint;
+		unsigned long as_ulong;
+
+	} s0, s1, dst;
+
+    std::vector<Register> src0 = operands_[Operand::SRC0]->getValueX(lane_id);
+    Register src1 = operands_[Operand::SRC1]->getValue(lane_id);
+
+    std::vector<Register> result(2);
+/*
+	assert(!OPCODE.clamp);
+	assert(!OPCODE.omod);
+*/
+	// Load operands from registers.
+	s0.as_reg[0] = src0[0].as_uint;
+	s0.as_reg[1] = src0[1].as_uint;
+
+	// LSHFT_B64
+	// Mask s1 to return s1[4:0]
+	// to extract left shift right operand
+	dst.as_ulong = s0.as_ulong << (src1.as_uint & 0x001F);
+
+	// Write the results.
+	// Cast uint32 to unsigned int
+	result[0].as_uint = (unsigned int)dst.as_reg[0];
+	result[1].as_uint = (unsigned int)dst.as_reg[1];
+    operands_[Operand::DST]->setValueX(result, lane_id);
+	//WriteVReg(OPCODE.vdst, result_lo.as_uint, lane_id);
+	// WriteVReg(OPCODE.vdst + 1, result_hi.as_uint, lane_id);
+}
+
 

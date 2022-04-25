@@ -10,24 +10,43 @@ void INST::Decode(uint64_t _opcode) {
     bytes.dword = _opcode;
     info.op = OPCODE.op;
     m_is_warp_op = true;
-	/* 0xFF indicates the use of a literal constant as a
-	 * source operand. */
-	if (bytes.SOP1.ssrc0 == 0xFF) {
+
+	if (OPCODE.ext.e0_.ext_enc == 0x7) {
 		m_size = 8;
 	} else {
         bytes.word[1] = 0;
 		m_size = 4;
     }
+
+    num_dst_operands = 1;
+    num_src_operands = 1;
+    uint32_t reg_range = 2;
+
+    if (info.op == OpcodeSOP1::S_MOV_B64 ||
+        info.op == OpcodeSOP1::S_WQM_B64 ||
+        info.op == OpcodeSOP1::S_SWAPPC_B64 ||
+        info.op == OpcodeSOP1::S_AND_SAVEEXEC_B64
+        ) {
+        reg_range = 2;
+    }
+
+    operands_[Operand::SRC0] = std::make_shared<Operand>(Operand::SRC0,
+                Reg(OPCODE.ssrc0, reg_range, Reg::Scalar));
+    operands_[Operand::DST] = std::make_shared<Operand>( Operand::DST,
+                Reg(OPCODE.sdst, reg_range, Reg::Scalar));
 }
 
 void INST::print() {
-    printf("Instruction: %s(%x)\n", opcode_str[info.op].c_str(), info.op);
+    Instruction::print();
+    printSOP1(OPCODE);
 }
 
-void INST::dumpExecBegin(WarpState *w) {
+void INST::OperandCollect(WarpState *w) {
+    Instruction::OperandCollect(w);
 }
 
-void INST::dumpExecEnd(WarpState *w) {
+void INST::WriteBack(WarpState *w) {
+    Instruction::WriteBack(w);
 }
 
 
@@ -37,67 +56,37 @@ void INST::S_MOV_B64(WarpState *item, uint32_t lane_id)
 	// Assert no literal constant with a 64 bit instruction.
 	// assert(!(OPCODE.ssrc0 == 0xFF));
 
-	Register s0_lo;
-	Register s0_hi;
+    std::vector<Register> s0 = operands_[Operand::SRC0]->getValueX();
+	// Register s0_lo = s0[0];
+	// Register s0_hi = s0[1];
 
-	// Load operand from registers.
-	if (OPCODE.ssrc0 == 0xFF){
-		s0_lo.as_uint = OPCODE.lit_const;
-		s0_hi.as_uint = 0x0;
-	}
-	else{
-		s0_lo.as_uint = ReadSReg(OPCODE.ssrc0);
-		s0_hi.as_uint = ReadSReg(OPCODE.ssrc0 + 1);
-	}
-
-	// Write the results.
-	// Store the data in the destination register
-	WriteSReg(OPCODE.sdst, s0_lo.as_uint);
-	// Store the data in the destination register
-	WriteSReg(OPCODE.sdst + 1, s0_hi.as_uint);
-
-	// Print isa debug information.
-//		Emulator::isa_debug << misc::fmt("S%u<=(0x%x) ", OPCODE.sdst, s0_lo.as_uint);
-//		Emulator::isa_debug << misc::fmt("S%u<=(0x%x)", OPCODE.sdst + 1, s0_hi.as_uint);
+    operands_[Operand::DST]->setValueX(s0);
 }
 
 // D.u = S0.u.
 void INST::S_MOV_B32(WarpState *item, uint32_t lane_id)
 {
-	Register s0;
+	Register s0 = operands_[Operand::SRC0]->getValue();
 
-	// Load operand from registers or as a literal constant.
-	if (OPCODE.ssrc0 == 0xFF)
-		s0.as_uint = OPCODE.lit_const;
-	else
-		s0.as_uint = ReadSReg(OPCODE.ssrc0);
-
-	// Write the results.
-	// Store the data in the destination register
-	WriteSReg(OPCODE.sdst, s0.as_uint);
-
-	// Print isa debug information.
-    //		Emulator::isa_debug << misc::fmt("S%u<=(0x%x) ", OPCODE.sdst, s0.as_uint);
+    operands_[Operand::DST]->setValue(s0);
 }
 
 // D.u = ~S0.u SCC = 1 if result non-zero.
 void INST::S_NOT_B32(WarpState *item, uint32_t lane_id)
 {
-	Register s0;
-	Register nonzero;
+	Register s0 = operands_[Operand::SRC0]->getValue();
+	// Register nonzero;
+	Register result;
 
-	// Load operand from registers or as a literal constant.
-	if (OPCODE.ssrc0 == 0xFF)
-		s0.as_uint = ~OPCODE.lit_const;
-	else
-		s0.as_uint = ~ReadSReg(OPCODE.ssrc0);
-	nonzero.as_uint = ! !s0.as_uint;
+	// nonzero.as_uint = ! !s0.as_uint;
+    result.as_uint = ~s0.as_uint;
+    operands_[Operand::DST]->setValue(result);
 
 	// Write the results.
 	// Store the data in the destination register
-	WriteSReg(OPCODE.sdst, s0.as_uint);
+	// WriteSReg(OPCODE.sdst, s0.as_uint);
 	// Store the data in the destination register
-	WriteSReg(RegisterScc, nonzero.as_uint);
+	// WriteSReg(RegisterScc, nonzero.as_uint);
 
 	// Print isa debug information.
 	//	Emulator::isa_debug << misc::fmt("S%u<=(0x%x) ", OPCODE.sdst, s0.as_uint);

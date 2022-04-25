@@ -14,10 +14,10 @@ void INST::print() {
     printf("Instruction: %s(%x)\n", opcode_str[info.op].c_str(), info.op);
 }
 
-void INST::dumpExecBegin(WarpState *w) {
+void INST::OperandCollect(WarpState *w) {
 }
 
-void INST::dumpExecEnd(WarpState *w) {
+void INST::WriteBack(WarpState *w) {
 }
 
 

@@ -1,7 +1,6 @@
 #pragma once
 
 #include <vector>
-#include <bitset>
 #include <deque>
 // #include "inc/ExecTypes.h"
 // #include "inc/Kernel.h"
@@ -54,13 +53,6 @@ struct dim3
 
 // bounded stack that implements simt reconvergence using pdom mechanism from
 // MICRO'07 paper
-const uint32_t MAX_WARPSIZE = 32;
-#define MAX_WARP_SIZE_SimtStack MAX_WARPSIZE
-// typedef std::vector<addr_t> addr_vector_t;
-
-typedef std::bitset<MAX_WARPSIZE> active_mask_t;
-typedef std::bitset<MAX_WARP_SIZE_SimtStack> simt_mask_t;
-
 // const unsigned long long GLOBAL_HEAP_START = 0xC0000000;
 
 // Volta max shmem size is 96kB

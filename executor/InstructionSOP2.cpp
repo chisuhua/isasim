@@ -25,10 +25,10 @@ void INST::print() {
     printf("Instruction: %s(%x)\n", opcode_str[info.op].c_str(), info.op);
 }
 
-void INST::dumpExecBegin(WarpState *w) {
+void INST::OperandCollect(WarpState *w) {
 }
 
-void INST::dumpExecEnd(WarpState *w) {
+void INST::WriteBack(WarpState *w) {
 }
 /*
 uint32_t readSrc0(Instruction::BytesSOP2 op, WarpState *item, uint32_t lane_id, uint32_t offset = 0) {

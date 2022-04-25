@@ -54,6 +54,7 @@ public:
 
     void initDump(std::string filename);
 
+    uint32_t getReservedSreg(uint32_t reg_id) ;
     uint32_t getSreg(uint32_t reg_id) ;
     void setSreg(uint32_t reg_id, uint32_t value);
 
@@ -62,6 +63,8 @@ public:
 
 	void setBitmaskSreg(uint32_t sreg, uint32_t value, uint32_t lane_id);
 	uint32_t getBitmaskSreg(uint32_t sreg, uint32_t lane_id);
+
+	uint32_t getDmemStride(uint32_t sreg);
 
     void setDmem(uint32_t addr, uint32_t length, char* value);
     void getDmem(uint32_t addr, uint32_t length, char* value);
@@ -82,6 +85,7 @@ public:
     void dumpAddr(std::stringstream &ss, std::vector<uint64_t> &addr, uint32_t tmsk) ;
     void dumpSreg(std::stringstream &ss, uint32_t sreg);
     void dumpVreg(std::stringstream &ss, uint32_t vreg, uint32_t data_size = 8);
+    void dumpDmem(std::stringstream &ss, uint32_t dreg, uint32_t lane_stride = 0, uint32_t data_size = 8);
 
     std::ofstream& out() {return m_dump;}
     void flush() { m_dump.flush();}
@@ -137,11 +141,19 @@ public:
 
     void setConstBuffer(uint32_t *const_buffer);
     void setStackPointer(uint64_t stack_pointer);
-/*
+
+    uint32_t getWarpSize() {
+        return m_warp_size;
+    }
+
+    active_mask_t& getActiveMask() {
+        return m_active_mask;
+    }
+
     void setActiveMask(active_mask_t &active_mask) {
         m_active_mask = active_mask;
     };
-*/
+
     std::function<dsm_access_ftype> m_dsm_read;
     std::function<dsm_access_ftype> m_dsm_write;
     std::function<mem_access_ftype> m_mem_read;
@@ -166,7 +178,7 @@ public:
     bool memory_wait = false;   // wai instruction
 
     WarpStatus *m_status;
-    // active_mask_t m_active_mask;
+    active_mask_t m_active_mask;
     std::ofstream m_dump;
 
 private:

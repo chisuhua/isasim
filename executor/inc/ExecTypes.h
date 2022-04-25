@@ -1,5 +1,15 @@
 #pragma once
 #include "coasm_define.h"
+#include <bitset>
+
+const uint32_t MAX_WARPSIZE = 32;
+#define MAX_WARP_SIZE_SimtStack MAX_WARPSIZE
+// typedef std::vector<addr_t> addr_vector_t;
+
+typedef std::bitset<MAX_WARPSIZE> active_mask_t;
+typedef std::bitset<MAX_WARP_SIZE_SimtStack> simt_mask_t;
+
+
 /// 4-byte register
 union Register
 {
@@ -15,8 +25,23 @@ union Register
 	float as_float;
 };
 
+// Memory pointer object, stored in 2 consecutive 32-bit SI registers
+struct MemoryPointer
+{
+	unsigned long long addr : 48;
+	unsigned int unused     : 16;
+}__attribute__((packed));
+
+union RegisterX2 {
+    uint64_t as_long;
+    Register as_reg[2];
+    MemoryPointer as_ptr;
+};
+
 /// Constants for special registers
 static const unsigned RegisterM0 = SREG_M0;
+static const unsigned RegisterTcc = SREG_TCC;
+static const unsigned RegisterTccz = SREG_TCCZ;
 static const unsigned RegisterVcc = SREG_VCC;
 static const unsigned RegisterVccz = SREG_VCCZ;
 static const unsigned RegisterExec = SREG_EXEC;
@@ -155,18 +180,7 @@ struct SamplerDescriptor
 	unsigned int border_color_type  : 2;    // [127:126]
 }__attribute__((packed));
 
-// Memory pointer object, stored in 2 consecutive 32-bit SI registers
-struct MemoryPointer
-{
-	unsigned long long addr : 48;
-	unsigned int unused     : 16;
-}__attribute__((packed));
 
-union RegisterX2 {
-    uint64_t as_long;
-    Register reg[2];
-    MemoryPointer ptr;
-};
 
 
 

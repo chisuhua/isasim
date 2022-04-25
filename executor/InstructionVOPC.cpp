@@ -7,127 +7,108 @@
 void INST::Decode(uint64_t _opcode) {
     bytes.dword = _opcode;
     info.op = OPCODE.op;
-	if (bytes.VOPC.src0 == 0xFF) {
+    is_VOPC = true;
+
+	if (OPCODE.ext.e0_.ext_enc == 0x7) {
 		m_size = 8;
 	} else {
         bytes.word[1] = 0;
 		m_size = 4;
     }
+    num_dst_operands = 1;
+    num_src_operands = 2;
+    uint32_t src0_reg_range = 1;
+    uint32_t src1_reg_range = 1;
+    uint32_t dst_reg_range = 1;
+
+    dsrc0_Decode(this, OPCODE.imm_, OPCODE.dsrc0_, OPCODE.src0, src0_reg_range);
+
+    operands_[Operand::SRC1] = std::make_shared<Operand>(Operand::SRC1,
+                Reg(OPCODE.vsrc1, src1_reg_range, Reg::Vector));
+    operands_[Operand::DST] = std::make_shared<Operand>( Operand::DST,
+                Reg(OPCODE.tcc + RegisterTcc, dst_reg_range, Reg::TCC));
 }
 
 void INST::print() {
-    printf("Instruction: %s(%x)\n", opcode_str[info.op].c_str(), info.op);
+    Instruction::print();
+    printVOPC(OPCODE);
 }
 
-void INST::dumpExecBegin(WarpState *w) {
+void INST::OperandCollect(WarpState *w) {
+    Instruction::OperandCollect(w);
 }
 
-void INST::dumpExecEnd(WarpState *w) {
-}
-
-uint32_t readSrc0(Instruction::BytesVOPC op, WarpState *item, uint32_t lane_id, uint32_t offset = 0) {
-	// Load operand from register or as a literal constant.
-    Register value;
-    if (op.ssrc0_ == 0)
-        value.as_uint = item->getSreg(op.src0 + offset);
-    else
-	    value.as_uint = item->getVreg(op.src0 + offset, lane_id);
-    return value.as_uint;
+void INST::WriteBack(WarpState *w) {
+    Instruction::WriteBack(w);
 }
 
 // vcc = (S0.f < S1.f).
 void INST::V_CMP_LT_F32(WarpState *item, uint32_t lane_id)
 {
-	Register s0;
-	Register s1;
+	Register s0 = operands_[Operand::SRC0]->getValue(lane_id);
+	Register s1 = operands_[Operand::SRC1]->getValue(lane_id);
 	Register result;
-
-	// Load operands from registers or as a literal constant.
-	s0.as_uint = readSrc0(OPCODE, item, lane_id);
-	s1.as_uint = ReadVReg(OPCODE.vsrc1, lane_id);
 
 	// Compare the operands.
 	result.as_uint = (s0.as_float < s1.as_float);
 
-	// Write the results.
-	WriteBitmaskSReg(RegisterVcc, result.as_uint, lane_id);
-
+    operands_[Operand::DST]->setBitmask(result, lane_id);
 }
 
 // vcc = (S0.f > S1.f).
 void INST::V_CMP_GT_F32(WarpState *item, uint32_t lane_id)
 {
-	Register s0;
-	Register s1;
+	Register s0 = operands_[Operand::SRC0]->getValue(lane_id);
+	Register s1 = operands_[Operand::SRC1]->getValue(lane_id);
 	Register result;
-
-	// Load operands from registers or as a literal constant.
-	s0.as_uint = readSrc0(OPCODE, item, lane_id);
-	s1.as_uint = ReadVReg(OPCODE.vsrc1, lane_id);
 
 	// Compare the operands.
 	result.as_uint = (s0.as_float > s1.as_float);
 
 	// Write the results.
-	WriteBitmaskSReg(RegisterVcc, result.as_uint, lane_id);
-
+    operands_[Operand::DST]->setBitmask(result, lane_id);
 }
 
 // vcc = (S0.f >= S1.f).
 void INST::V_CMP_GE_F32(WarpState *item, uint32_t lane_id)
 {
-	Register s0;
-	Register s1;
+	Register s0 = operands_[Operand::SRC0]->getValue(lane_id);
+	Register s1 = operands_[Operand::SRC1]->getValue(lane_id);
 	Register result;
-
-	// Load operands from registers or as a literal constant.
-	s0.as_uint = readSrc0(OPCODE, item, lane_id);
-	s1.as_uint = ReadVReg(OPCODE.vsrc1, lane_id);
 
 	// Compare the operands.
 	result.as_uint = (s0.as_float >= s1.as_float);
 
 	// Write the results.
-	WriteBitmaskSReg(RegisterVcc, result.as_uint, lane_id);
-
+    operands_[Operand::DST]->setBitmask(result, lane_id);
 }
 
 // vcc = !(S0.f > S1.f).
 void INST::V_CMP_NGT_F32(WarpState *item, uint32_t lane_id)
 {
-	Register s0;
-	Register s1;
+	Register s0 = operands_[Operand::SRC0]->getValue(lane_id);
+	Register s1 = operands_[Operand::SRC1]->getValue(lane_id);
 	Register result;
-
-	// Load operands from registers or as a literal constant.
-	s0.as_uint = readSrc0(OPCODE, item, lane_id);
-	s1.as_uint = ReadVReg(OPCODE.vsrc1, lane_id);
 
 	// Compare the operands.
 	result.as_uint = !(s0.as_float > s1.as_float);
 
 	// Write the results.
-	WriteBitmaskSReg(RegisterVcc, result.as_uint, lane_id);
-
+    operands_[Operand::DST]->setBitmask(result, lane_id);
 }
 
 // vcc = !(S0.f == S1.f).
 void INST::V_CMP_NEQ_F32(WarpState *item, uint32_t lane_id)
 {
-	Register s0;
-	Register s1;
+	Register s0 = operands_[Operand::SRC0]->getValue(lane_id);
+	Register s1 = operands_[Operand::SRC1]->getValue(lane_id);
 	Register result;
-
-	// Load operands from registers or as a literal constant.
-	s0.as_uint = readSrc0(OPCODE, item, lane_id);
-	s1.as_uint = ReadVReg(OPCODE.vsrc1, lane_id);
 
 	// Compare the operands.
 	result.as_uint = !(s0.as_float == s1.as_float);
 
 	// Write the results.
-	WriteBitmaskSReg(RegisterVcc, result.as_uint, lane_id);
-
+    operands_[Operand::DST]->setBitmask(result, lane_id);
 }
 
 #if 0
@@ -178,115 +159,85 @@ void INST::V_CMP_NLT_F64(WarpState *item, uint32_t lane_id)
 // vcc = (S0.i < S1.i).
 void INST::V_CMP_LT_I32(WarpState *item, uint32_t lane_id)
 {
-	Register s0;
-	Register s1;
+	Register s0 = operands_[Operand::SRC0]->getValue(lane_id);
+	Register s1 = operands_[Operand::SRC1]->getValue(lane_id);
 	Register result;
-
-	// Load operands from registers or as a literal constant.
-	s0.as_uint = readSrc0(OPCODE, item, lane_id);
-	s1.as_uint = ReadVReg(OPCODE.vsrc1, lane_id);
 
 	// Compare the operands.
 	result.as_uint = (s0.as_int < s1.as_int);
 
 	// Write the results.
-	WriteBitmaskSReg(RegisterVcc, result.as_uint, lane_id);
-
+    operands_[Operand::DST]->setBitmask(result, lane_id);
 }
 
 // vcc = (S0.i == S1.i).
 void INST::V_CMP_EQ_I32(WarpState *item, uint32_t lane_id)
 {
-	Register s0;
-	Register s1;
+	Register s0 = operands_[Operand::SRC0]->getValue(lane_id);
+	Register s1 = operands_[Operand::SRC1]->getValue(lane_id);
 	Register result;
-
-	// Load operands from registers or as a literal constant.
-	s0.as_uint = readSrc0(OPCODE, item, lane_id);
-	s1.as_uint = ReadVReg(OPCODE.vsrc1, lane_id);
 
 	// Compare the operands.
 	result.as_uint = (s0.as_int == s1.as_int);
 
 	// Write the results.
-	WriteBitmaskSReg(RegisterVcc, result.as_uint, lane_id);
-
+    operands_[Operand::DST]->setBitmask(result, lane_id);
 }
 
 // vcc = (S0.i <= S1.i).
 void INST::V_CMP_LE_I32(WarpState *item, uint32_t lane_id)
 {
-	Register s0;
-	Register s1;
+	Register s0 = operands_[Operand::SRC0]->getValue(lane_id);
+	Register s1 = operands_[Operand::SRC1]->getValue(lane_id);
 	Register result;
-
-	// Load operands from registers or as a literal constant.
-	s0.as_uint = readSrc0(OPCODE, item, lane_id);
-	s1.as_uint = ReadVReg(OPCODE.vsrc1, lane_id);
 
 	// Compare the operands.
 	result.as_uint = (s0.as_int <= s1.as_int);
 
 	// Write the results.
-	WriteBitmaskSReg(RegisterVcc, result.as_uint, lane_id);
-
+    operands_[Operand::DST]->setBitmask(result, lane_id);
 }
 
 // vcc = (S0.i > S1.i).
 void INST::V_CMP_GT_I32(WarpState *item, uint32_t lane_id)
 {
-	Register s0;
-	Register s1;
+	Register s0 = operands_[Operand::SRC0]->getValue(lane_id);
+	Register s1 = operands_[Operand::SRC1]->getValue(lane_id);
 	Register result;
-
-	// Load operands from registers or as a literal constant.
-	s0.as_uint = readSrc0(OPCODE, item, lane_id);
-	s1.as_uint = ReadVReg(OPCODE.vsrc1, lane_id);
 
 	// Compare the operands.
 	result.as_uint = (s0.as_int > s1.as_int);
 
 	// Write the results.
-	WriteBitmaskSReg(RegisterVcc, result.as_uint, lane_id);
-
+    operands_[Operand::DST]->setBitmask(result, lane_id);
 }
 
 // vcc = (S0.i <> S1.i).
 void INST::V_CMP_NE_I32(WarpState *item, uint32_t lane_id)
 {
-	Register s0;
-	Register s1;
+	Register s0 = operands_[Operand::SRC0]->getValue(lane_id);
+	Register s1 = operands_[Operand::SRC1]->getValue(lane_id);
 	Register result;
-
-	// Load operands from registers or as a literal constant.
-	s0.as_uint = readSrc0(OPCODE, item, lane_id);
-	s1.as_uint = ReadVReg(OPCODE.vsrc1, lane_id);
 
 	// Compare the operands.
 	result.as_uint = (s0.as_int != s1.as_int);
 
 	// Write the results.
-	WriteBitmaskSReg(RegisterVcc, result.as_uint, lane_id);
-
+    operands_[Operand::DST]->setBitmask(result, lane_id);
 }
 
 // D.u = (S0.i >= S1.i).
 void INST::V_CMP_GE_I32(WarpState *item, uint32_t lane_id)
 {
-	Register s0;
-	Register s1;
+	Register s0 = operands_[Operand::SRC0]->getValue(lane_id);
+	Register s1 = operands_[Operand::SRC1]->getValue(lane_id);
 	Register result;
-
-	// Load operands from registers.
-	s0.as_uint = readSrc0(OPCODE, item, lane_id);
-	s1.as_uint = ReadVReg(OPCODE.vsrc1, lane_id);
 
 	// Compare the operands.
 	result.as_uint = (s0.as_int >= s1.as_int);
 
 	// Write the results.
-	WriteBitmaskSReg(RegisterVcc, result.as_uint, lane_id);
-
+    operands_[Operand::DST]->setBitmask(result, lane_id);
 }
 
 // D = IEEE numeric class function specified in S1.u, performed on S0.d.
@@ -300,20 +251,15 @@ void INST::V_CMP_CLASS_F64(WarpState *item, uint32_t lane_id)
 // vcc = (S0.u < S1.u).
 void INST::V_CMP_LT_U32(WarpState *item, uint32_t lane_id)
 {
-	Register s0;
-	Register s1;
+	Register s0 = operands_[Operand::SRC0]->getValue(lane_id);
+	Register s1 = operands_[Operand::SRC1]->getValue(lane_id);
 	Register result;
-
-	// Load operands from registers or as a literal constant.
-	s0.as_uint = readSrc0(OPCODE, item, lane_id);
-	s1.as_uint = ReadVReg(OPCODE.vsrc1, lane_id);
 
 	// Compare the operands.
 	result.as_uint = (s0.as_uint < s1.as_uint);
 
 	// Write the results.
-	WriteBitmaskSReg(RegisterVcc, result.as_uint, lane_id);
-
+    operands_[Operand::DST]->setBitmask(result, lane_id);
 }
 
 // vcc = (S0.u == S1.u).
@@ -325,77 +271,56 @@ void INST::V_CMP_EQ_U32(WarpState *item, uint32_t lane_id)
 // vcc = (S0.u <= S1.u).
 void INST::V_CMP_LE_U32(WarpState *item, uint32_t lane_id)
 {
-	Register s0;
-	Register s1;
+	Register s0 = operands_[Operand::SRC0]->getValue(lane_id);
+	Register s1 = operands_[Operand::SRC1]->getValue(lane_id);
 	Register result;
-
-	// Load operands from registers or as a literal constant.
-	s0.as_uint = readSrc0(OPCODE, item, lane_id);
-	s1.as_uint = ReadVReg(OPCODE.vsrc1, lane_id);
 
 	// Compare the operands.
 	result.as_uint = (s0.as_uint <= s1.as_uint);
 
 	// Write the results.
-	WriteBitmaskSReg(RegisterVcc, result.as_uint, lane_id);
-
+    operands_[Operand::DST]->setBitmask(result, lane_id);
 }
 
 // vcc = (S0.u > S1.u).
 void INST::V_CMP_GT_U32(WarpState *item, uint32_t lane_id)
 {
-	Register s0;
-	Register s1;
+	Register s0 = operands_[Operand::SRC0]->getValue(lane_id);
+	Register s1 = operands_[Operand::SRC1]->getValue(lane_id);
 	Register result;
-
-	// Load operands from registers or as a literal constant.
-	s0.as_uint = readSrc0(OPCODE, item, lane_id);
-	s1.as_uint = ReadVReg(OPCODE.vsrc1, lane_id);
 
 	// Compare the operands.
 	result.as_uint = (s0.as_uint > s1.as_uint);
 
 	// Write the results.
-	WriteBitmaskSReg(RegisterVcc, result.as_uint, lane_id);
-
+    operands_[Operand::DST]->setBitmask(result, lane_id);
 }
 
 // D.u = (S0.f != S1.f).
 void INST::V_CMP_NE_U32(WarpState *item, uint32_t lane_id)
 {
-	Register s0;
-	Register s1;
+	Register s0 = operands_[Operand::SRC0]->getValue(lane_id);
+	Register s1 = operands_[Operand::SRC1]->getValue(lane_id);
 	Register result;
-
-	// Load operands from registers or as a literal constant.
-	s0.as_uint = readSrc0(OPCODE, item, lane_id);
-	s1.as_uint = ReadVReg(OPCODE.vsrc1, lane_id);
 
 	// Compare the operands.
 	result.as_uint = (s0.as_uint != s1.as_uint);
 
 	// Write the results.
-	WriteBitmaskSReg(RegisterVcc, result.as_uint, lane_id);
-
+    operands_[Operand::DST]->setBitmask(result, lane_id);
 }
 
 
 void INST::V_CMP_GE_U32(WarpState *item, uint32_t lane_id)
 {
-	Register s0;
-	Register s1;
+	Register s0 = operands_[Operand::SRC0]->getValue(lane_id);
+	Register s1 = operands_[Operand::SRC1]->getValue(lane_id);
 	Register result;
 
-	// Load operands from registers or as a literal constant.
-	s0.as_uint = readSrc0(OPCODE, item, lane_id);
-	s1.as_uint = ReadVReg(OPCODE.vsrc1, lane_id);
 
 	// Compare the operands.
 	result.as_uint = (s0.as_uint >= s1.as_uint);
 
 	// Write the results.
-	WriteBitmaskSReg(RegisterVcc, result.as_uint, lane_id);
-
+    operands_[Operand::DST]->setBitmask(result, lane_id);
 }
-
-

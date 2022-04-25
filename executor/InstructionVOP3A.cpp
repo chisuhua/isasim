@@ -13,12 +13,16 @@ void INST::Decode(uint64_t _opcode) {
 }
 
 void INST::print() {
-    printf("Instruction: %s(%x)\n", opcode_str[info.op].c_str(), info.op);
-}
-void INST::dumpExecBegin(WarpState *w) {
+    Instruction::print();
+    printVOP3A(OPCODE);
 }
 
-void INST::dumpExecEnd(WarpState *w) {
+void INST::OperandCollect(WarpState *w) {
+    Instruction::OperandCollect(w);
+}
+
+void INST::WriteBack(WarpState *w) {
+    Instruction::WriteBack(w);
 }
 
 
@@ -508,43 +512,6 @@ void INST::V_ALIGNBIT_B32(WarpState *item, uint32_t lane_id)
 	ISAUnimplemented(item);
 }
  */
-
-void INST::V_LSHL_B64(WarpState *item, uint32_t lane_id)
-{
-	// Input operands
-	union
-	{
-		double as_double;
-		unsigned int as_reg[2];
-		unsigned int as_uint;
-		unsigned long as_ulong;
-
-	} s0, s1, dst;
-
-	Register result_lo;
-	Register result_hi;
-
-	assert(!OPCODE.clamp);
-	assert(!OPCODE.omod);
-
-	// Load operands from registers.
-	s0.as_reg[0] = ReadReg(OPCODE.src0);
-	s0.as_reg[1] = ReadReg(OPCODE.src0 + 1);
-	s1.as_reg[0] = ReadReg(OPCODE.src1);
-	s1.as_reg[1] = ReadReg(OPCODE.src1 + 1);
-
-	// LSHFT_B64
-	// Mask s1 to return s1[4:0]
-	// to extract left shift right operand
-	dst.as_ulong = s0.as_ulong << (s1.as_uint & 0x001F);
-
-	// Write the results.
-	// Cast uint32 to unsigned int
-	result_lo.as_uint = (unsigned int)dst.as_reg[0];
-	result_hi.as_uint = (unsigned int)dst.as_reg[1];
-	WriteVReg(OPCODE.vdst, result_lo.as_uint, lane_id);
-	WriteVReg(OPCODE.vdst + 1, result_hi.as_uint, lane_id);
-}
 
 
 // D.d = min(S0.d, S1.d).
@@ -1395,147 +1362,7 @@ void INST::V_LSHR_B64(WarpState *item, uint32_t lane_id)
 
 }
 
-// D = S0.u >> S1.u[4:0] (Arithmetic shift)
-void INST::V_ASHR_I64(WarpState *item, uint32_t lane_id)
-{
-	union
-	{
-		long long as_i64;
-		unsigned as_reg[2];
 
-	} s0, value;
-
-	Register s1;
-	Register result_lo;
-	Register result_hi;
-
-	assert(!OPCODE.clamp);
-	assert(!OPCODE.omod);
-	assert(!OPCODE.neg);
-	assert(!OPCODE.abs);
-
-	// Load operands from registers.
-	s0.as_reg[0] = ReadReg(OPCODE.src0);
-	s0.as_reg[1] = ReadReg(OPCODE.src0 + 1);
-	s1.as_uint = ReadReg(OPCODE.src1);
-	s1.as_uint = s1.as_uint & 0x1F;
-
-	// Shift s0.
-	value.as_i64 = s0.as_i64 >> s1.as_uint;
-
-	// Write the results.
-	result_lo.as_uint = value.as_reg[0];
-	result_hi.as_uint = value.as_reg[1];
-	WriteVReg(OPCODE.vdst, result_lo.as_uint, lane_id);
-	WriteVReg(OPCODE.vdst + 1, result_hi.as_uint, lane_id);
-
-}
-
-// D.d = S0.d + S1.d.
-void INST::V_ADD_F64(WarpState *item, uint32_t lane_id)
-{
-	union
-	{
-		double as_double;
-		unsigned as_reg[2];
-
-	} s0, s1, value;
-
-	Register result_lo;
-	Register result_hi;
-
-	assert(!OPCODE.clamp);
-	assert(!OPCODE.omod);
-	assert(!OPCODE.neg);
-	assert(!OPCODE.abs);
-
-	// Load operands from registers.
-	s0.as_reg[0] = ReadReg(OPCODE.src0);
-	s0.as_reg[1] = ReadReg(OPCODE.src0 + 1);
-	s1.as_reg[0] = ReadReg(OPCODE.src1);
-	s1.as_reg[1] = ReadReg(OPCODE.src1 + 1);
-
-	// Add the operands, take into account special number cases.
-
-	// s0 == NaN64 || s1 == NaN64
-	if (std::fpclassify(s0.as_double) == FP_NAN ||
-		std::fpclassify(s1.as_double) == FP_NAN)
-	{
-		// value <-- NaN64
-		value.as_double = NAN;
-	}
-	// s0,s1 == infinity
-	else if (std::fpclassify(s0.as_double) == FP_INFINITE &&
-		std::fpclassify(s1.as_double) == FP_INFINITE)
-	{
-		// value <-- NaN64
-		value.as_double = NAN;
-	}
-	// s0,!s1 == infinity
-	else if (std::fpclassify(s0.as_double) == FP_INFINITE)
-	{
-		// value <-- s0(+-infinity)
-		value.as_double = s0.as_double;
-	}
-	// s1,!s0 == infinity
-	else if (std::fpclassify(s1.as_double) == FP_INFINITE)
-	{
-		// value <-- s1(+-infinity)
-		value.as_double = s1.as_double;
-	}
-	// s0 == +-denormal, +-0
-	else if (std::fpclassify(s0.as_double) == FP_SUBNORMAL ||
-		std::fpclassify(s0.as_double) == FP_ZERO)
-	{
-		// s1 == +-denormal, +-0
-		if (std::fpclassify(s1.as_double) == FP_SUBNORMAL ||
-			std::fpclassify(s1.as_double) == FP_ZERO)
-			// s0 && s1 == -denormal, -0
-			if (std::signbit(s0.as_double)
-				&& std::signbit(s1.as_double))
-				// value <-- -0
-				value.as_double = -0;
-			else
-				// value <-- +0
-				value.as_double = +0;
-		// s1 == F
-		else
-			// value <-- s1
-			value.as_double = s1.as_double;
-	}
-	// s1 == +-denormal, +-0
-	else if (std::fpclassify(s1.as_double) == FP_SUBNORMAL ||
-		std::fpclassify(s1.as_double) == FP_ZERO)
-	{
-		// s0 == +-denormal, +-0
-		if (std::fpclassify(s0.as_double) == FP_SUBNORMAL ||
-			std::fpclassify(s0.as_double) == FP_ZERO)
-			// s0 && s1 == -denormal, -0
-			if (std::signbit(s0.as_double)
-				&& std::signbit(s1.as_double))
-				// value <-- -0
-				value.as_double = -0;
-			else
-				// value <-- +0
-				value.as_double = +0;
-		// s0 == F
-		else
-			// value <-- s1
-			value.as_double = s0.as_double;
-	}
-	// s0 && s1 == F
-	else
-	{
-		value.as_double = s0.as_double + s1.as_double;
-	}
-
-	// Write the results.
-	result_lo.as_uint = value.as_reg[0];
-	result_hi.as_uint = value.as_reg[1];
-	WriteVReg(OPCODE.vdst, result_lo.as_uint, lane_id);
-	WriteVReg(OPCODE.vdst + 1, result_hi.as_uint, lane_id);
-
-}
 
 // D.d = S0.d * S1.d.
 void INST::V_MUL_F64(WarpState *item, uint32_t lane_id)
