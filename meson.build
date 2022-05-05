@@ -58,57 +58,62 @@ message('DESIGN_ROOT is ' + DESIGN_ROOT)
 message('GEM5_ROOT is ' + GEM5_ROOT)
 message('CUDA_INSTALL_PATH is ' + CUDA_INSTALL_PATH)
 
-executor_link_args = link_args + ['-L' + DESIGN_ROOT + '/cosim', '-lcudart'] + ['-Wl,--version-script='+model_symbol_list]
-executor_inc = ['executor',
+isa_link_args = link_args + ['-L' + DESIGN_ROOT + '/cosim', '-lcudart'] + ['-Wl,--version-script='+model_symbol_list]
+isa_inc = [
+  'isa',
+  'model',
   DESIGN_ROOT + '/opu/coasm',
   DESIGN_ROOT + '/opu/umd',
   DESIGN_ROOT + '/libcuda',
   CUDA_INSTALL_PATH + '/include'
   ]
 
-executor_src = [
-  'executor/IsaSim.cpp',
-  'executor/Kernel.cpp',
-  'executor/Warp.cpp',
-  'executor/WarpState.cpp',
-  #'executor/Compute.cpp',
-  #'executor/ComputeUnit.cpp',
-  #'executor/CopyEngine.cpp',
-  #'executor/StreamProcessor.cpp',
-  #'executor/Engine.cpp',
-  #'executor/Memory.cpp',
-  #'executor/MemoryImpl.cc',
-  #'executor/Mmio.cpp',
-  'executor/ThreadBlock.cpp',
-  'executor/ThreadItem.cpp',
-  #'executor/Warp.cpp',
-  'executor/Instruction.cpp',
-  'executor/InstructionDLS.cpp',
-  'executor/InstructionSLS.cpp',
-  'executor/InstructionVLS.cpp',
-  #'executor/InstructionMTBUF.cpp',
-  'executor/InstructionVMUBUF.cpp',
-  #'executor/InstructionSMRD.cpp',
-  'executor/InstructionSOP1.cpp',
-  'executor/InstructionSOP2.cpp',
-  'executor/InstructionSOPC.cpp',
-  'executor/InstructionSOPK.cpp',
-  'executor/InstructionSOPP.cpp',
-  'executor/InstructionVOP1.cpp',
-  'executor/InstructionVOP2.cpp',
-  'executor/InstructionVOP3A.cpp',
-  'executor/InstructionVOP3B.cpp',
-  'executor/InstructionVOPC.cpp',
-  'executor/InstructionCommon.cpp'
+isa_src = [
+  'model/IsaSim.cpp',
+  'model/Kernel.cpp',
+  'model/Warp.cpp',
+  'model/CUState.cpp',
+  'model/WarpState.cpp',
+  'model/ThreadBlock.cpp',
+  'model/ThreadItem.cpp',
+  #'isa/Compute.cpp',
+  #'isa/ComputeUnit.cpp',
+  #'isa/CopyEngine.cpp',
+  #'isa/StreamProcessor.cpp',
+  #'isa/Engine.cpp',
+  #'isa/Memory.cpp',
+  #'isa/MemoryImpl.cc',
+  #'isa/Mmio.cpp',
+  #'isa/Warp.cpp',
+  'isa/Instruction.cpp',
+  'isa/InstructionDLS.cpp',
+  'isa/InstructionSLS.cpp',
+  'isa/InstructionVLS.cpp',
+  #'isa/InstructionMTBUF.cpp',
+  'isa/InstructionVMUBUF.cpp',
+  #'isa/InstructionSMRD.cpp',
+  'isa/InstructionSOP1.cpp',
+  'isa/InstructionSOP2.cpp',
+  'isa/InstructionSOPC.cpp',
+  'isa/InstructionSOPK.cpp',
+  'isa/InstructionSOPP.cpp',
+  'isa/InstructionVOP1.cpp',
+  'isa/InstructionVOP2.cpp',
+  'isa/InstructionVOP3A.cpp',
+  'isa/InstructionVOP3B.cpp',
+  'isa/InstructionVOPC.cpp',
+  'isa/DecodeCommon.cpp',
+  'isa/ExecCommon.cpp',
+  'isa/MemCommon.cpp'
   ]
 
-executor = shared_library(
+isa = shared_library(
   'isasim',
-  executor_src,
-  include_directories : include_directories(executor_inc),
+  isa_src,
+  include_directories : include_directories(isa_inc),
   install : false,
   cpp_args : extra_cpp_args,
-  link_args : executor_link_args,
+  link_args : isa_link_args,
   )
 
 
