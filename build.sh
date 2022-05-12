@@ -3,12 +3,33 @@
 
 set -e
 
+build_cash() {
+	#if [ ej:]
+	pushd ../3rdparty/cash
+	if [ ! -d "build" ]; then
+		mkdir build && cmake -DPLUGIN=OFF -DCMAKE_BUILD_TYPE=Debug .. || exit 1
+
+	fi
+    cd build && make -j8 || exit 1
+	cp lib/libcash.* $GEM5_ROOT/design/cosim/
+	popd
+}
+
 build_dbg() {
-	rm -rf build && mkdir build && cd build && meson .. && ninja || exit 1
+	build_cash;
+	if [ ! -d "build" ]; then
+		mkdir build && cd build && meson .. || exit 1
+	fi
+	echo `pwd`
+	cd build && ninja -j8 || exit 1
 }
 
 build_release() {
-	rm -rf build && mkdir build && cd build && meson .. --buildtype release && ninja || exit 1
+	build_cash;
+	if [ ! -d "build" ]; then
+		mkdir build && cd build && meson .. --buildtype release || exit 1
+	fi
+	cd build && ninja -j8 || exit 1
 }
 
 if [ ! -z "$1" ]; then

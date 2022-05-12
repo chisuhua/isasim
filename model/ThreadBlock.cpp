@@ -1,133 +1,20 @@
 #include "inc/ThreadBlock.h"
+#include "inc/BlockState.h"
 #include "inc/ThreadItem.h"
 #include "inc/Warp.h"
 #include "inc/WarpState.h"
-#include "inc/CUState.h"
+// #include "inc/CUResource.h"
 #include "inc/Instruction.h"
 #include <bitset>
 //#include "../../libcuda/abstract_hardware_model.h"
 #include "../../libcuda/cuda-sim/memory.h"
 #include "../../libcuda/gpgpu_context.h"
-
-extern CUState g_cu_state;
-
-
-cta_info_t::cta_info_t(gpgpu_context *ctx, dim3 cta_id) {
-  m_uid = (ctx->g_ptx_cta_info_uid)++;
-  g_cu_state.initStorage(m_uid);
-  m_bar_threads = 0;
-  m_cta_id = cta_id;
-  gpgpu_ctx = ctx;
-}
-
-void cta_info_t::add_thread( ThreadItem *thd )
-{
-   m_threads_in_cta.insert(thd);
-}
-
-unsigned cta_info_t::num_threads() const
-{
-   return m_threads_in_cta.size();
-}
-
-void cta_info_t::check_cta_thread_status_and_reset() {
-  bool fail = false;
-  if (m_threads_that_have_exited.size() != m_threads_in_cta.size()) {
-    printf("\n\n");
-    printf(
-        "Execution error: Some threads still running in CTA during CTA "
-        "reallocation! (1)\n");
-    printf("   CTA uid = %Lu : %lu running out of %zu total\n",
-           m_uid,
-           (m_threads_in_cta.size() - m_threads_that_have_exited.size()),
-           m_threads_in_cta.size());
-    printf("   These are the threads that are still running:\n");
-    std::set<ThreadItem *>::iterator t_iter;
-    for (t_iter = m_threads_in_cta.begin(); t_iter != m_threads_in_cta.end();
-         ++t_iter) {
-      ThreadItem *t = *t_iter;
-      if (m_threads_that_have_exited.find(t) ==
-          m_threads_that_have_exited.end()) {
-        if (m_dangling_pointers.find(t) != m_dangling_pointers.end()) {
-          printf("       <thread deleted>\n");
-        } else {
-          printf("       [done=%c] : ", (t->is_done() ? 'Y' : 'N'));
-          t->print_insn(t->get_pc(), stdout);
-          printf("\n");
-        }
-      }
-    }
-    printf("\n\n");
-    fail = true;
-  }
-  if (fail) {
-    abort();
-  }
-
-  bool fail2 = false;
-  std::set<ThreadItem *>::iterator t_iter;
-  for (t_iter = m_threads_in_cta.begin(); t_iter != m_threads_in_cta.end();
-       ++t_iter) {
-    ThreadItem *t = *t_iter;
-    if (m_dangling_pointers.find(t) == m_dangling_pointers.end()) {
-      if (!t->is_done()) {
-        if (!fail2) {
-          printf(
-              "Execution error: Some threads still running in CTA during CTA "
-              "reallocation! (2)\n");
-          printf("   CTA uid = %Lu :\n", m_uid );
-          fail2 = true;
-        }
-        printf("       ");
-        t->print_insn(t->get_pc(), stdout);
-        printf("\n");
-      }
-    }
-  }
-  if (fail2) {
-    abort();
-  }
-  m_threads_in_cta.clear();
-  m_threads_that_have_exited.clear();
-  m_dangling_pointers.clear();
-}
-
-void cta_info_t::register_thread_exit(ThreadItem *thd) {
-  assert(m_threads_that_have_exited.find(thd) ==
-         m_threads_that_have_exited.end());
-  m_threads_that_have_exited.insert(thd);
-}
-
-void cta_info_t::register_deleted_thread(ThreadItem *thd) {
-  m_dangling_pointers.insert(thd);
-}
+#include "inc/HwOp.h"
 
 
-unsigned cta_info_t::get_bar_threads() const { return m_bar_threads; }
-
-void cta_info_t::inc_bar_threads() { m_bar_threads++; }
-
-void cta_info_t::reset_bar_threads() { m_bar_threads = 0; }
-
-unsigned cta_info_t::get_reduction_value(unsigned barid) {
-  return g_cu_state.getReductionValue(m_uid, barid);
-}
-
-void cta_info_t::and_reduction(unsigned barid, bool value) {
-   g_cu_state.andReduction(m_uid, barid, value);
-}
-
-void cta_info_t::or_reduction(unsigned barid, bool value) {
-   g_cu_state.orReduction(m_uid, barid, value);
-}
-
-void cta_info_t::popc_reduction(unsigned barid, bool value) {
-   g_cu_state.popcReduction(m_uid, barid, value);
-}
-
-
-ThreadBlock::ThreadBlock(libcuda::gpgpu_t *gpu, KernelInfo* kernel, libcuda::gpgpu_context *ctx, unsigned warp_size, unsigned threads_per_shader, dim3 cta_id, uint32_t kernel_const_num)
-    : m_warp_size(warp_size)
+ThreadBlock::ThreadBlock(libcuda::gpgpu_t *gpu, KernelInfo* kernel, libcuda::gpgpu_context *ctx, BlockState *block_state, unsigned warp_size, unsigned threads_per_shader, dim3 cta_id, uint32_t kernel_const_num)
+    : m_block_state(block_state)
+    , m_warp_size(warp_size)
     , m_kernel(kernel)
 {
     m_kernel_addr = kernel->state()->getProgAddr();
@@ -135,7 +22,6 @@ ThreadBlock::ThreadBlock(libcuda::gpgpu_t *gpu, KernelInfo* kernel, libcuda::gpg
     m_gpu = gpu;
     m_global_mem = gpu->get_global_memory();
     m_gpgpu_ctx = ctx;
-    m_cta_info = new cta_info_t(ctx, cta_id);
     m_kernel_const_num = kernel_const_num;
     m_warp_count = threads_per_shader / m_warp_size;
     // Handle the case where the number of threads is not a
@@ -150,6 +36,7 @@ ThreadBlock::ThreadBlock(libcuda::gpgpu_t *gpu, KernelInfo* kernel, libcuda::gpg
     initilizeSIMTStack(m_warp_count, m_warp_size);
     m_warpAtBarrier =  new bool [m_warp_count];
     m_liveThreadCount = new unsigned [m_warp_count];
+    m_hwop = new HwOp();
 }
 
 
@@ -171,7 +58,7 @@ void ThreadBlock::executeInstruction(shared_ptr<Instruction> inst, unsigned warp
       m_thread[tid]->Execute(inst, m_Warp[warpId]->m_warp_state);
       if (m_Warp[warpId]->m_warp_state->isLaneExit(t)) {
         m_thread[tid]->set_done();
-        m_kernel->m_thread_pool.push_back(m_thread[tid]);
+        // m_kernel->m_thread_pool.push_back(m_thread[tid]);
       }
 
       // virtual function
@@ -217,7 +104,7 @@ shared_ptr<Instruction> ThreadBlock::getInstruction(address_type pc) {
         uint64_t opcode;
         m_gpu->get_global_memory()->read(pc_address, 8, &opcode);
         // printf("make instrction PC=%lx for opcode %lx\n", pc, opcode);
-        m_insts[pc] = make_instruction(opcode);
+        m_insts[pc] = make_instruction(opcode, m_hwop);
         m_insts[pc]->print();
         m_insts[pc]->Decode(opcode);
         m_insts[pc]->pc = pc;
@@ -263,7 +150,7 @@ void ThreadBlock::get_pdom_stack_top_info(unsigned warpId, unsigned *pc,
   m_Warp[warpId]->get_pdom_stack_top_info(pc, rpc);
 }
 
-void ThreadBlock::initializeCTA(unsigned ctaid_cp) {
+void ThreadBlock::initializeCTA(uint32_t ctaid_cp) {
   int ctaLiveThreads = 0;
 
   for (int i = 0; i < m_warp_count; i++) {
@@ -307,9 +194,9 @@ void ThreadBlock::initializeCTA(unsigned ctaid_cp) {
     block_idx_z_vreg_num = block_idx_y_vreg_num + 1;
   }
 
-  uint32_t x = m_cta_info->get_cta_id().x;
-  uint32_t y = m_cta_info->get_cta_id().y;
-  uint32_t z = m_cta_info->get_cta_id().z;
+  uint32_t x = m_block_state->get_cta_id().x;
+  uint32_t y = m_block_state->get_cta_id().y;
+  uint32_t z = m_block_state->get_cta_id().z;
   if (block_idx_x_vreg_num >= 0)
       m_shared_mem->write(block_idx_x_vreg_num, 4, &x, nullptr, nullptr);
   if (block_idx_y_vreg_num >= 0)
@@ -326,8 +213,8 @@ unsigned ThreadBlock::createThread(KernelInfo &kernel,
                              unsigned num_threads, ThreadBlock *tb,
                              unsigned hw_cta_id, unsigned hw_warp_id,
                              libcuda::gpgpu_t *gpu, bool isInFunctionalSimulationMode) {
-  std::list<ThreadItem*> &thread_pool = kernel.m_thread_pool;
 #if 0
+  std::list<ThreadItem*> &thread_pool = kernel.m_thread_pool;
   if (*thread_info != NULL) {
     ThreadItem *thd = *thread_info;
     assert(thd->is_done());
@@ -340,21 +227,23 @@ unsigned ThreadBlock::createThread(KernelInfo &kernel,
           ctaid.x, ctaid.y, ctaid.z, t.x, t.y, t.z, thd->get_uid());
       fflush(stdout);
     }
-    thd->m_cta_info->register_deleted_thread(thd);
+    thd->m_block_state->register_deleted_thread(thd);
     thd = nullptr;
     *thread_info = nullptr;
   }
 #endif
   ThreadItem* thd;
+  /*
   if (!thread_pool.empty()) {
     assert(thread_pool.size() <= threads_left);
     thd = thread_pool.front();
     thread_pool.pop_front();
     *thread_info = thd;
   } else {
+  */
     thd = new ThreadItem();
     *thread_info = thd;
-  }
+  //}
 
   thd->init(gpu, tb, sid, hw_cta_id, hw_warp_id, tid);
   if (g_debug_exec > 1) {
@@ -471,15 +360,15 @@ void ThreadBlock::createWarp(unsigned warpId) {
   // below behavior is same as coasm, which kernel access reg in same way
   // FIXME we can move block const reg in shared memory
   if ((m_kernel->kernel_ctrl() >> KERNEL_CTRL_BIT_BLOCK_IDX_X) & 0x1) {
-      warp_state->setSreg(block_const_reg_num, m_cta_info->get_cta_id().x);
+      warp_state->setSreg(block_const_reg_num, m_block_state->get_cta_id().x);
       block_const_reg_num++;
   }
   if ((m_kernel->kernel_ctrl() >> KERNEL_CTRL_BIT_BLOCK_IDX_Y) & 0x1) {
-      warp_state->setSreg(block_const_reg_num, m_cta_info->get_cta_id().y);
+      warp_state->setSreg(block_const_reg_num, m_block_state->get_cta_id().y);
       block_const_reg_num++;
   }
   if ((m_kernel->kernel_ctrl() >> KERNEL_CTRL_BIT_BLOCK_IDX_Z) & 0x1) {
-      warp_state->setSreg(block_const_reg_num, m_cta_info->get_cta_id().z);
+      warp_state->setSreg(block_const_reg_num, m_block_state->get_cta_id().z);
       block_const_reg_num++;
   }
 #endif
@@ -523,9 +412,9 @@ void ThreadBlock::createWarp(unsigned warpId) {
 
   std::string dump_file = "instdump_";
   m_Warp[warpId]->m_warp_state->initDump(
-          dump_file + "tb_" + std::to_string(m_cta_info->get_cta_id().x) +
-          "_" + std::to_string(m_cta_info->get_cta_id().y) +
-          "_" + std::to_string(m_cta_info->get_cta_id().z) +
+          dump_file + "tb_" + std::to_string(m_block_state->get_cta_id().x) +
+          "_" + std::to_string(m_block_state->get_cta_id().y) +
+          "_" + std::to_string(m_block_state->get_cta_id().z) +
           "_warp_" + std::to_string(warpId) + ".log");
 
   m_Warp[warpId]->launch(m_thread[warpId * m_warp_size]->get_pc(), initialMask);
@@ -546,22 +435,19 @@ void ThreadBlock::createWarp(unsigned warpId) {
   m_liveThreadCount[warpId] = liveThreadsCount;
 }
 
-void ThreadBlock::execute(int inst_count, unsigned ctaid_cp) {
+bool ThreadBlock::execute(uint32_t ctaid_cp) {
   m_gpgpu_ctx->func_sim->cp_count = m_gpu->checkpoint_insn_Y;
   m_gpgpu_ctx->func_sim->cp_cta_resume = m_gpu->checkpoint_CTA_t;
   initializeCTA(ctaid_cp);
 
-  int count = 0;
   while (true) {
     bool someOneLive = false;
     bool allAtBarrier = true;
     for (unsigned i = 0; i < m_warp_count; i++) {
       executeWarp(i, allAtBarrier, someOneLive);
-      count++;
     }
 
-    if (inst_count > 0 && count > inst_count &&
-        (m_kernel->get_uid() == m_gpu->checkpoint_kernel) &&
+    if ((m_kernel->get_uid() == m_gpu->checkpoint_kernel) &&
         (ctaid_cp >= m_gpu->checkpoint_CTA) &&
         (ctaid_cp < m_gpu->checkpoint_CTA_t) && m_gpu->checkpoint_option == 1) {
       someOneLive = false;
@@ -606,6 +492,7 @@ void ThreadBlock::execute(int inst_count, unsigned ctaid_cp) {
       fclose(fp);
     }
   }
+  return true;
 }
 
 void ThreadBlock::executeWarp(unsigned warpId, bool &allAtBarrier,
@@ -626,7 +513,7 @@ void ThreadBlock::warp_exit(unsigned warp_id) {
   for (int i = 0; i < m_warp_count * m_warp_size; i++) {
     // FIXME 
     if (m_thread[i] != NULL) {
-      // m_thread[i]->m_cta_info->register_deleted_thread(m_thread[i]);
+      // m_thread[i]->m_block_state->register_deleted_thread(m_thread[i]);
       // delete m_thread[i];
     }
   }

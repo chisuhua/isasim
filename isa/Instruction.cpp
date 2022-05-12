@@ -5,7 +5,7 @@
 
 #include "inc/Instruction.h"
 
-std::shared_ptr<Instruction> make_instruction(uint64_t _opcode)
+std::shared_ptr<Instruction> make_instruction(uint64_t _opcode, HwOp *hw_op)
 {
 	/* Initialize instruction */
     Instruction::Bytes opcode;
@@ -33,7 +33,7 @@ std::shared_ptr<Instruction> make_instruction(uint64_t _opcode)
 
     // inst->address = address;
     // inst->m_decoded = true;
-
+    inst->hw_op_ = hw_op;
     return inst;
 }
 

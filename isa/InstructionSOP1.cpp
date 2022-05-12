@@ -1,6 +1,6 @@
 #include "inc/Instruction.h"
 #include "inc/InstructionCommon.h"
-#include "common/utils.h"
+// #include "common/utils.h"
 
 
 #define OPCODE bytes.SOP1
@@ -118,7 +118,7 @@ void INST::S_SWAPPC_B64(WarpState *item, uint32_t lane_id)
 	// Set the new PC
 	item->setWarpPC(s0_lo.as_uint - 4);
 
-    debug_print("s%u <= (0x%x)", OPCODE.sdst+1, s0_hi.as_uint);
+    DBG(3, "s%u <= (0x%x)", OPCODE.sdst+1, s0_hi.as_uint);
 	// Print isa debug information.
     //	Emulator::isa_debug << misc::fmt("S%u<=(0x%x) ", OPCODE.sdst, pc + 4);
 	//	Emulator::isa_debug << misc::fmt("S%u<=(0x%x) ", OPCODE.sdst + 1, s0_hi.as_uint);

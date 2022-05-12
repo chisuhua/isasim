@@ -312,6 +312,7 @@ void WarpState::readVMEM(uint64_t addr, uint32_t length, void* value, mem_space_
     m_mem_read(addr, length, value, space);
 }
 
+#if 0
 void WarpState::executeInst(std::shared_ptr<Instruction> inst) {
     inst->Execute(this);
 }
@@ -321,6 +322,7 @@ void WarpState::executeInst(uint64_t opcode) {
     inst->Decode(opcode);
     inst->Execute(this);
 }
+#endif
 
 void WarpState::getSregMemPtr(uint32_t sreg, MemoryPointer &mem_ptr) {
 	((uint32_t *)&mem_ptr)[0] = getSreg(sreg);

@@ -121,6 +121,7 @@ typedef enum opu_red_t reduction_type_t;
 enum opu_operand_type_t { UN_OP = -1, INT_OP, FP_OP };
 typedef enum opu_operand_type_t types_of_operands_t;
 
+#if 0
 enum opu_special_operations_t {
   OTHER_OP,
   INT__OP,
@@ -149,6 +150,7 @@ enum operation_pipeline_t {
   MEM__OP,
   SPECIALIZED__OP,
 };
+#endif
 
 typedef enum opu_op_t op_type_t;
 

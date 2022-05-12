@@ -30,5 +30,8 @@
 inline void	ISAUnimplemented(class WarpState*){
 }
 
+#include "common/string_utils.h"
 #include "common/DataTypes.h"
 #include "inc/ThreadBlock.h"
+#include "inc/HwOp.h"
+

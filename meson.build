@@ -58,22 +58,27 @@ message('DESIGN_ROOT is ' + DESIGN_ROOT)
 message('GEM5_ROOT is ' + GEM5_ROOT)
 message('CUDA_INSTALL_PATH is ' + CUDA_INSTALL_PATH)
 
-isa_link_args = link_args + ['-L' + DESIGN_ROOT + '/cosim', '-lcudart'] + ['-Wl,--version-script='+model_symbol_list]
+isa_link_args = link_args + ['-L' + DESIGN_ROOT + '/cosim', '-lcudart', '-lcash' ] + ['-Wl,--version-script='+model_symbol_list]
+#isa_link_args += ['-L' + DESIGN_ROOT + '/opu/3rdparty/cash/build/lib', '-lcash']
 isa_inc = [
   'isa',
   'model',
   DESIGN_ROOT + '/opu/coasm',
   DESIGN_ROOT + '/opu/umd',
   DESIGN_ROOT + '/libcuda',
+  DESIGN_ROOT + '/opu/3rdparty/cash/include',
   CUDA_INSTALL_PATH + '/include'
   ]
 
 isa_src = [
-  'model/IsaSim.cpp',
+  'common/string_utils.cpp',
+  'common/debug.cpp',
+  'model/Executor.cpp',
   'model/Kernel.cpp',
   'model/Warp.cpp',
-  'model/CUState.cpp',
+  'model/CUResource.cpp',
   'model/WarpState.cpp',
+  'model/BlockState.cpp',
   'model/ThreadBlock.cpp',
   'model/ThreadItem.cpp',
   #'isa/Compute.cpp',
@@ -85,6 +90,7 @@ isa_src = [
   #'isa/MemoryImpl.cc',
   #'isa/Mmio.cpp',
   #'isa/Warp.cpp',
+  'isa/HwOp.cpp',
   'isa/Instruction.cpp',
   'isa/InstructionDLS.cpp',
   'isa/InstructionSLS.cpp',

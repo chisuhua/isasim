@@ -19,7 +19,7 @@ using namespace std;
 
 class Instruction;
 class ThreadBlock;
-class cta_info_t;
+class BlockState;
 namespace libcuda {
 class gpgpu_t;
 class memory_space;
@@ -220,7 +220,7 @@ public:
   ThreadBlock* m_block;
   Warp* m_warp;	// Global memory
   // mem::Memory *global_mem = nullptr;
-  cta_info_t *m_cta_info;
+  BlockState *m_cta_info;
   unsigned m_local_mem_stack_pointer;
 
 private:

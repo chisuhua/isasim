@@ -7,63 +7,36 @@
 // #include "../../libcuda/abstract_hardware_model.h"
 
 class ThreadItem;
-class WarpInst;
 class Warp;
+class BlockState;
 
 namespace libcuda {
-class kernel_info_t;
 class gpgpu_t;
 class gpgpu_context;
 }
 
-
-class cta_info_t {
-public:
-  cta_info_t(libcuda::gpgpu_context *ctx, dim3);
-  void add_thread(ThreadItem *thd);
-  unsigned num_threads() const;
-  void check_cta_thread_status_and_reset();
-  void register_thread_exit(ThreadItem *thd);
-  void register_deleted_thread(ThreadItem *thd);
-  unsigned get_bar_threads() const;
-  void inc_bar_threads();
-  void reset_bar_threads();
-  dim3 get_cta_id() {return m_cta_id;}
-
-  unsigned get_reduction_value(unsigned barid);
-  void and_reduction(unsigned barid, bool value);
-  void or_reduction(unsigned barid, bool value);
-  void popc_reduction(unsigned barid, bool value);
-
- private:
-  // backward pointer
-  libcuda::gpgpu_context *gpgpu_ctx;
-  unsigned m_bar_threads;
-  unsigned long long m_uid;
-  dim3     m_cta_id;
-  std::set<ThreadItem *> m_threads_in_cta;
-  std::set<ThreadItem *> m_threads_that_have_exited;
-  std::set<ThreadItem *> m_dangling_pointers;
-};
 
 /*!
  * This class functionally executes a kernel. It uses the basic data structures and procedures in core_t
  */
 class ThreadBlock {
 public:
-  ThreadBlock(libcuda::gpgpu_t *gpu, KernelInfo *kernel, libcuda::gpgpu_context *ctx, unsigned warp_size, unsigned threads_per_shader, dim3 cta_id, uint32_t kernel_const_reg_num);
+  ThreadBlock(libcuda::gpgpu_t *gpu, KernelInfo *kernel, libcuda::gpgpu_context *ctx,
+          BlockState *block_state,
+          unsigned warp_size, unsigned threads_per_shader, dim3 cta_id, uint32_t kernel_const_reg_num);
 
   virtual ~ThreadBlock(){
     // warp_exit(0);
     delete[] m_liveThreadCount;
     delete[] m_warpAtBarrier;
-    delete m_cta_info;
+    delete m_block_state;
+    delete m_hwop;
     // delete m_kernel;
     // free(m_thread);
   }
 
   //! executes all warps till completion
-  void execute(int inst_count, unsigned ctaid_cp);
+  bool execute(uint32_t ctaid_cp);
   void warp_exit( unsigned warp_id );
   bool warp_waiting_at_barrier( unsigned warp_id ) const;
   void executeInstruction(std::shared_ptr<Instruction> inst, unsigned warpId);
@@ -119,12 +92,13 @@ public:
   libcuda::gpgpu_t *m_gpu;
   KernelInfo *m_kernel;
   Warp **m_Warp;  // pdom based reconvergence context for each warp
+  HwOp *m_hwop;
   unsigned m_warp_size;
   unsigned m_warp_count;
   // unsigned reduction_storage[MAX_CTA_PER_SHADER][MAX_BARRIERS_PER_CTA];
   int m_gpgpu_param_num_shaders = 1000; // FIXME
 
-  cta_info_t *m_cta_info;
+  BlockState *m_block_state;
   libcuda::gpgpu_context *m_gpgpu_ctx;
   uint32_t m_kernel_const_num;
 

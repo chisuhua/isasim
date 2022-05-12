@@ -97,8 +97,8 @@ public:
     MemoryPointer getSBaseAddr(uint32_t vreg); // call by SMEM
     uint64_t calculateAddr(uint32_t vreg);
 
-    void executeInst(std::shared_ptr<Instruction> inst);
-    void executeInst(uint64_t opcode);
+    // void executeInst(std::shared_ptr<Instruction> inst);
+    // void executeInst(uint64_t opcode);
 
     uint64_t getWarpPC() {
         return m_PC;

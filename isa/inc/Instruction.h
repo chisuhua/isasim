@@ -11,7 +11,11 @@
 #include <map>
 #include <cctype>
 #include <algorithm>
+#include <core.h>
+#include <htl/decoupled.h>
+#include "common.h"
 
+class HwOp;
 extern int g_debug_exec;
 
 #define DEFINSTEND(_fmt)
@@ -799,6 +803,7 @@ class Instruction {
 
   addr_t pc;  // program counter address of instruction
   op_type_t op_type_;       // opcode (uarch visible)
+  HwOp    *hw_op_;       // cash wrapper
 
   barrier_type_t bar_type;
   reduction_type_t red_type;
@@ -950,7 +955,7 @@ class Instruction##_fmt : public Instruction {                     \
 
 //	        (inst->InstFuncTable)[_opcode] = &Instruction##_fmt_str::_name; 
 
-std::shared_ptr<Instruction> make_instruction(uint64_t _opcode);
+std::shared_ptr<Instruction> make_instruction(uint64_t _opcode, HwOp*);
 
 #if 0
 class WarpInst {

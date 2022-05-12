@@ -502,10 +502,17 @@ void INST::V_ADD_I32(WarpState *w, uint32_t lane_id)
 	Register sum;
 	Register carry;
 
+
 	// Calculate the sum and carry.
-	sum.as_int = s0.as_int + s1.as_int;
-	carry.as_uint =
-		! !(((long long) s0.as_int + (long long) s1.as_int) >> 32);
+	// sum.as_int = s0.as_int + s1.as_int;
+	//carry.as_uint =
+	//	! !(((long long) s0.as_int + (long long) s1.as_int) >> 32);
+    sum.as_uint = hw_op_->add(s0.as_int, s1.as_int, carry.as_uint, 0);
+    // static int run_times {0};
+    // run_times++;
+
+    // hw_op_->adder32_sim->toText(internal::stringf("adder%d.log", run_times));
+    // hw_op_->adder32_sim->toVCD(internal::stringf("adder%d.vcd", run_times));
 
 	// Write the results.
     operands_[Operand::DST]->setValue(sum, lane_id);

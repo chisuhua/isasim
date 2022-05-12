@@ -1,8 +1,10 @@
 #include "inc/IsaSim.h"
 #include "inc/ThreadBlock.h"
-#include "inc/CUState.h"
+#include "inc/BlockState.h"
+#include "inc/CUResource.h"
 #include "KernelDispInfo.h"
 #include <algorithm>
+#include "common/ThreadPool.h"
 #include "../../libcuda/gpgpu_context.h"
 
 extern int  libcuda::g_debug_execution;
@@ -23,7 +25,6 @@ unsigned gpgpu_context::translate_pc_to_ptxlineno(unsigned pc) {
 
   return ptx_line_number;
 }
-#endif
 
 unsigned max_cta(const struct DispatchInfo *disp_info,
                  unsigned threads_per_cta, unsigned int warp_size,
@@ -62,8 +63,18 @@ unsigned max_cta(const struct DispatchInfo *disp_info,
 
   return result;
 }
+#endif
 
-CUState g_cu_state;
+void BlockTask(ThreadBlock *cta, uint32_t global_ctaid, ThreadPool &thread_pool) {
+    bool finished = cta->execute(global_ctaid);
+    if (finished) {
+        cta->m_block_state->destroy();
+        delete cta;
+    } else {
+        thread_pool.addTask(std::bind(BlockTask, cta, global_ctaid, std::ref(thread_pool)));
+    }
+}
+
 
 /*!
 This function simulates the CUDA code functionally, it takes a disp_info_t
@@ -127,7 +138,6 @@ void IsaSim::launch(DispatchInfo *disp_info, unsigned kernel_uid, bool openCL) {
   printf(
       "GPGPU-Sim: Performing Functional Simulation, executing kernel %s...\n",
       kernel.name().c_str());
-*/
   unsigned max_cta_tot = max_cta(
       disp_info, kernel->threads_per_cta(),
       m_ctx->the_gpgpusim->g_the_gpu->getShaderCoreConfig()->warp_size,
@@ -139,17 +149,23 @@ void IsaSim::launch(DispatchInfo *disp_info, unsigned kernel_uid, bool openCL) {
       m_ctx->the_gpgpusim->g_the_gpu->getShaderCoreConfig()
           ->max_cta_per_core);
   printf("Max CTA : %d\n", max_cta_tot);
+*/
 
   int cp_op = m_ctx->the_gpgpusim->g_the_gpu->checkpoint_option;
   int cp_kernel = m_ctx->the_gpgpusim->g_the_gpu->checkpoint_kernel;
-  cp_count = m_ctx->the_gpgpusim->g_the_gpu->checkpoint_insn_Y;
   cp_cta_resume = m_ctx->the_gpgpusim->g_the_gpu->checkpoint_CTA_t;
+  int max_cta_per_core = m_ctx->the_gpgpusim->g_the_gpu->getShaderCoreConfig()->max_cta_per_core;
   int cta_launched = 0;
 
+  std::mutex scheduler_mutex_;
+  std::condition_variable scheduler_cv_;
+  std::atomic_int running_block_count {0};
+
+  ThreadPool thread_pool(kernel->num_blocks());
   // we excute the kernel one CTA (Block) at the time, as synchronization
   // functions work block wise
   while (!kernel->no_more_ctas_to_run()) {
-    unsigned temp = kernel->get_next_cta_id_single();
+    unsigned global_ctaid = kernel->get_next_cta_id_single();
     dim3 cta_id = kernel->get_next_cta_id();
 
     if (cp_op == 0 ||
@@ -157,14 +173,20 @@ void IsaSim::launch(DispatchInfo *disp_info, unsigned kernel_uid, bool openCL) {
          kernel->get_uid() == cp_kernel) ||
         kernel->get_uid() < cp_kernel)  // just fro testing
     {
-      ThreadBlock cta(
+
+      BlockState* block_state = BlockState::GetBlockState(MAX_BARRIERS_PER_CTA);
+      // if (block_state == nullptr) { continue; }
+      block_state->init(m_ctx, cta_id);
+
+      ThreadBlock *cta = new ThreadBlock(
         m_gpu, kernel, m_ctx,
+        block_state,
         m_ctx->the_gpgpusim->g_the_gpu->getShaderCoreConfig()->warp_size,
         kernel->threads_per_cta(),
         cta_id,
         const_reg_num);
 
-      cta.execute(cp_count, temp);
+      thread_pool.addTask(std::bind(BlockTask, cta, global_ctaid, std::ref(thread_pool)));
     }
     kernel->increment_cta_id();
     cta_launched++;

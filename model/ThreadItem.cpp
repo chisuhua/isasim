@@ -1,5 +1,6 @@
 #include "inc/ThreadItem.h"
 #include "inc/ThreadBlock.h"
+#include "inc/BlockState.h"
 #include "inc/Warp.h"
 #include "inc/Instruction.h"
 #include "inc/ExecTypes.h"
