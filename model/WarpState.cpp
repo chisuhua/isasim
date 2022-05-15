@@ -1,10 +1,16 @@
 #include <assert.h>
 #include "inc/WarpState.h"
 #include "inc/Instruction.h"
+#include "inc/BlockState.h"
+#include "inc/ThreadItem.h"
 #include "coasm_define.h"
 
+extern int g_debug_exec;
 
-void WarpState::init() {
+void WarpState::init(uint32_t warp_id, BlockState* tb_state, ThreadItem** thd) {
+    m_warp_id = warp_id;
+    m_tb_state = tb_state;
+    m_thread = thd;
 	// Integer inline constants.
 #if 0
 	for(int i = 128; i < 193; i++)
@@ -29,6 +35,7 @@ void WarpState::initDump(std::string filename) {
     if (!m_dump.is_open()) {
         assert(false || "fail to open file");
     }
+    m_dump_enable = true;
 }
 
 uint32_t WarpState::getVreg(uint32_t vreg, uint32_t lane_id)
@@ -187,6 +194,7 @@ void WarpState::dumpVreg(std::stringstream &ss, uint32_t vreg, uint32_t data_siz
 }
 
 void WarpState::dumpDmem(std::stringstream &ss, uint32_t dreg, uint32_t lane_stride, uint32_t data_size) {
+    if (!m_dump_enable) return;
     for (uint32_t w=0; w < m_warp_size; w++) {
         if (w == 16) {
             ss << "         ";
@@ -207,6 +215,7 @@ void WarpState::dumpDmem(std::stringstream &ss, uint32_t dreg, uint32_t lane_str
 }
 
 void WarpState::dumpAddr(std::stringstream &ss, std::vector<uint64_t> &addr, uint32_t tmsk) {
+    if (!m_dump_enable) return;
     ss << std::hex;
     for (uint32_t w=0; w < m_warp_size; w++) {
         if (w == 16) {
@@ -364,3 +373,45 @@ void WarpState::ReadBufferResource(
 	((uint32_t *) &buf_desc)[2] = value[2];
 	((uint32_t *) &buf_desc)[3] = value[3];
 }
+
+void WarpState::arriveBar(uint32_t slot, uint32_t warp_count) {
+        m_tb_state->arriveBar(slot, m_warp_id, warp_count);
+}
+
+void WarpState::setFinished(uint32_t lane_id) {
+    m_status[lane_id] = WarpStatus::EXIT;
+    m_tb_state->removeWarp(m_warp_id);
+}
+
+uint64_t WarpState::getWarpPC(uint32_t lane_id) {
+    return getThread(lane_id)->get_pc();
+}
+
+//  FIXME modify to use real warp PC
+void WarpState::setWarpPC(uint64_t pc) {
+    for (uint32_t lane = 0; lane < m_warp_size; lane++) {
+        getThread(lane)->set_pc(pc);
+    }
+}
+
+void WarpState::incWarpPC(int increment, uint32_t lane_id) {
+    uint32_t pc = getWarpPC(lane_id);
+    for (uint32_t lane = 0; lane < m_warp_size; lane++) {
+        getThread(lane)->set_npc(pc + increment);
+    }
+}
+
+uint64_t WarpState::getThreadPC(uint32_t lane_id) {
+    return getThread(lane_id)->get_pc();
+}
+
+void WarpState::setThreadPC(uint64_t pc, uint32_t lane_id) {
+    getThread(lane_id)->set_pc(pc);
+}
+
+void WarpState::incThreadPC(int increment, uint32_t lane_id) {
+    uint32_t pc = getWarpPC(lane_id);
+    getThread(lane_id)->set_npc(pc + increment);
+}
+
+

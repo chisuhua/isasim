@@ -16,7 +16,13 @@ void INST::Decode(uint64_t _opcode) {
     num_src_operands = 1;
     uint32_t reg_range = 1;
 
-    if (OPCODE.op == OpcodeSOPP::S_EXIT) {
+    if (OPCODE.op == OpcodeSOPP::T_EXIT ||
+        OPCODE.op == OpcodeSOPP::T_NOP ||
+        OPCODE.op == OpcodeSOPP::T_CBRANCH_TCCZ ||
+        OPCODE.op == OpcodeSOPP::T_CBRANCH_TCCNZ ||
+        OPCODE.op == OpcodeSOPP::T_CBRANCH_EXECZ ||
+        OPCODE.op == OpcodeSOPP::T_CBRANCH_EXECNZ
+            ) {
         m_is_warp_op = false;
         num_src_operands = 0;
     }
@@ -25,7 +31,7 @@ void INST::Decode(uint64_t _opcode) {
         operands_[Operand::SRC0] = std::make_shared<Operand>(Operand::SRC0,
                 uint32_t(OPCODE.simm12));
 
-        if (OPCODE.op <= OpcodeSOPP::S_CBRANCH_EXECNZ) {
+        if (OPCODE.op <= OpcodeSOPP::T_CBRANCH_EXECNZ) {
             operands_[Operand::SRC1] = std::make_shared<Operand>(Operand::SRC1,
                 Reg(OPCODE.tcc + RegisterTcc, reg_range, Reg::TCC));
             num_src_operands = 2;
@@ -52,7 +58,7 @@ void INST::WriteBack(WarpState *w) {
 
 
 // End the program.
-void INST::S_EXIT(WarpState *item, uint32_t lane_id)
+void INST::T_EXIT(WarpState *item, uint32_t lane_id)
 {
 	item->setFinished(lane_id);     // TODO s_exit make all active thread done
     // item->m_thread_done = true;
@@ -69,11 +75,12 @@ void INST::S_BRANCH(WarpState *item, uint32_t lane_id)
 	se_simm = simm.as_int;
 
 	// Relative jump
-	item->incWarpPC(se_simm * 4 + 4 - m_size);
+	// item->incWarpPC(se_simm * 4 + 4 - m_size, lane_id);
+	item->incWarpPC(se_simm, lane_id);
 }
 
 // if(TCC == 0) then PC = PC + signext(SIMM16 * 4) + 4; else nop.
-void INST::S_CBRANCH_TCCZ(WarpState *item, uint32_t lane_id)
+void INST::T_CBRANCH_TCCZ(WarpState *item, uint32_t lane_id)
 {
 	int se_simm;
 
@@ -86,13 +93,13 @@ void INST::S_CBRANCH_TCCZ(WarpState *item, uint32_t lane_id)
 	    se_simm = simm.as_int;
 
 		// Determine the program counter to branch to.
-		item->incWarpPC(se_simm * 4 + 4 - m_size);
+		item->incThreadPC(se_simm, lane_id);
 	}
 }
 
 
 // if(TCC == 1) then PC = PC + signext(SIMM16 * 4) + 4; else nop.
-void INST::S_CBRANCH_TCCNZ(WarpState *item, uint32_t lane_id)
+void INST::T_CBRANCH_TCCNZ(WarpState *item, uint32_t lane_id)
 {
 	int se_simm;
 
@@ -105,7 +112,7 @@ void INST::S_CBRANCH_TCCNZ(WarpState *item, uint32_t lane_id)
 	    se_simm = simm.as_int;
 
 		// Determine the program counter to branch to.
-		item->incWarpPC(se_simm * 4 + 4 - m_size);
+		item->incThreadPC(se_simm, lane_id);
 	}
 }
 
@@ -123,7 +130,7 @@ void INST::S_CBRANCH_SCCZ(WarpState *item, uint32_t lane_id)
 	    se_simm = simm.as_int;
 
 		// Determine the program counter to branch to.
-		item->incWarpPC(se_simm * 4 + 4 - m_size);
+		item->incThreadPC(se_simm, lane_id);
 	}
 }
 
@@ -141,18 +148,18 @@ void INST::S_CBRANCH_SCCNZ(WarpState *item, uint32_t lane_id)
 	    se_simm = simm.as_int;
 
 		// Determine the program counter to branch to.
-		item->incWarpPC(se_simm * 4 + 4 - m_size);
+		item->incThreadPC(se_simm, lane_id);
 	}
 }
 
 // if(EXEC == 0) then PC = PC + signext(SIMM16 * 4) + 4; else nop.
-void INST::S_CBRANCH_EXECZ(WarpState *item, uint32_t lane_id)
+void INST::T_CBRANCH_EXECZ(WarpState *item, uint32_t lane_id)
 {
 }
 
 
 // if(EXEC != 0) then PC = PC + signext(SIMM16 * 4) + 4; else nop.
-void INST::S_CBRANCH_EXECNZ(WarpState *item, uint32_t lane_id)
+void INST::T_CBRANCH_EXECNZ(WarpState *item, uint32_t lane_id)
 {
 }
 
@@ -204,5 +211,11 @@ void INST::BAR_SYNC(WarpState *item, uint32_t lane_id)
 {
     auto op0 = getOperand("bar_id");
     auto op1 = getOperand("bar_count");
+}
+
+// Do nothing
+void INST::T_NOP(WarpState *item, uint32_t lane_id)
+{
+	// Do nothing
 }
 

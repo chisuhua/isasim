@@ -9,6 +9,8 @@
 // #include "abstract_hardware_model.h"
 //
 class Instruction;
+class BlockState;
+class ThreadItem;
 using mem_access_ftype = void(uint64_t, size_t, void*, mem_space_t::SpaceType );
 using dsm_access_ftype = void(uint64_t, size_t, void*);
 
@@ -40,7 +42,6 @@ public:
         m_dsm_write = dsm_write;
         m_mem_read = mem_read;
         m_mem_write = mem_write;
-        init();
     }
     ~WarpState() {
         delete m_sreg;
@@ -51,7 +52,7 @@ public:
         }
     }
 
-    void init();
+    void init(uint32_t warp_id, BlockState*, ThreadItem**);
 
     void initDump(std::string filename);
 
@@ -90,6 +91,7 @@ public:
 
     std::ofstream& out() {return m_dump;}
     void flush() { m_dump.flush();}
+    bool isDumpEnable() {return m_dump_enable;}
 
     uint64_t setupAddrSpace(uint64_t, mem_space_t::SpaceType &space);
     //MemoryPointer getVBaseAddr(uint32_t vreg, uint32_t lane_id); // call by VMEM
@@ -100,17 +102,14 @@ public:
     // void executeInst(std::shared_ptr<Instruction> inst);
     // void executeInst(uint64_t opcode);
 
-    uint64_t getWarpPC() {
-        return m_PC;
-    }
+    uint64_t getWarpPC(uint32_t lane_id) ;
+    void incWarpPC(int increment, uint32_t lane_id) ;
+    void setWarpPC(uint64_t pc) ;
 
-    void setWarpPC(uint64_t pc) {
-        m_PC = pc;
-    }
+    uint64_t getThreadPC(uint32_t lane_id) ;
+    void setThreadPC(uint64_t pc, uint32_t lane_id) ;
+    void incThreadPC(int increment, uint32_t lane_id) ;
 
-    void incWarpPC(int increment) {
-        m_PC += increment;
-    }
 
     bool isLaneExit(uint32_t laneid) {
         if (m_status[laneid] == WarpStatus::EXIT)
@@ -119,9 +118,7 @@ public:
             return false;
     }
 
-    void setFinished(uint32_t lane_id) {
-        m_status[lane_id] = WarpStatus::EXIT;
-    }
+    void setFinished(uint32_t lane_id);
 
     void getSregMemPtr(uint32_t sreg, MemoryPointer &mem_ptr);
     void getVregMemPtr(uint32_t vreg, MemoryPointer &mem_ptr, uint32_t lane_id);
@@ -143,6 +140,11 @@ public:
     void setConstBuffer(uint32_t *const_buffer);
     void setStackPointer(uint64_t stack_pointer);
 
+    ThreadItem* getThread(uint32_t lane_id) {
+        uint32_t i = m_warp_id * m_warp_size + lane_id;
+        return m_thread[i];
+    }
+
     uint32_t getWarpSize() {
         return m_warp_size;
     }
@@ -153,7 +155,17 @@ public:
 
     void setActiveMask(active_mask_t &active_mask) {
         m_active_mask = active_mask;
-    };
+    }
+
+    void arriveBar(uint32_t slot, uint32_t warp_count = 0) ;
+
+    void setBlocking(bool blocking = true) {
+        m_is_blocking = blocking;
+    }
+
+    bool isBlocking() {
+        return m_is_blocking;
+    }
 
     std::function<dsm_access_ftype> m_dsm_read;
     std::function<dsm_access_ftype> m_dsm_write;
@@ -181,6 +193,7 @@ public:
     WarpStatus *m_status;
     active_mask_t m_active_mask;
     std::ofstream m_dump;
+    bool m_dump_enable {false};
 
 private:
     uint32_t m_sreg_num;
@@ -190,5 +203,9 @@ private:
     uint32_t *m_sreg;
     uint32_t *m_vreg;
     uint32_t *m_const_buffer;
-    uint64_t m_PC;
+    // uint64_t m_PC;
+    bool     m_is_blocking;
+    uint32_t m_warp_id;
+    BlockState *m_tb_state;
+    ThreadItem **m_thread;
 };

@@ -11,6 +11,7 @@
 #include "../../libcuda/gpgpu_context.h"
 #include "inc/HwOp.h"
 
+extern int g_debug_exec;
 
 ThreadBlock::ThreadBlock(libcuda::gpgpu_t *gpu, KernelInfo* kernel, libcuda::gpgpu_context *ctx, BlockState *block_state, unsigned warp_size, unsigned threads_per_shader, dim3 cta_id, uint32_t kernel_const_num)
     : m_block_state(block_state)
@@ -34,8 +35,7 @@ ThreadBlock::ThreadBlock(libcuda::gpgpu_t *gpu, KernelInfo* kernel, libcuda::gpg
                                           sizeof(ThreadItem *));
 
     initilizeSIMTStack(m_warp_count, m_warp_size);
-    m_warpAtBarrier =  new bool [m_warp_count];
-    m_liveThreadCount = new unsigned [m_warp_count];
+    m_warp_live_thread = new unsigned [m_warp_count];
     m_hwop = new HwOp();
 }
 
@@ -154,8 +154,7 @@ void ThreadBlock::initializeCTA(uint32_t ctaid_cp) {
   int ctaLiveThreads = 0;
 
   for (int i = 0; i < m_warp_count; i++) {
-    m_warpAtBarrier[i] = false;
-    m_liveThreadCount[i] = 0;
+    m_warp_live_thread[i] = 0;
   }
   for (int i = 0; i < m_warp_count * m_warp_size; i++) m_thread[i] = nullptr;
 
@@ -204,7 +203,17 @@ void ThreadBlock::initializeCTA(uint32_t ctaid_cp) {
   if (block_idx_z_vreg_num >= 0)
       m_shared_mem->write(block_idx_x_vreg_num, 4, &z, nullptr, nullptr);
 
-  for (int k = 0; k < m_warp_count; k++) createWarp(k);
+  const char *tbid = getenv("ISASIM_DUMP");
+  int32_t x_dump, y_dump, z_dump, w_dump;
+  bool dump_enable = false;
+  if (tbid) {
+      sscanf(tbid, "%d:%d:%d:%d", &x_dump, &y_dump, &z_dump, &w_dump);
+      if (((x_dump = -1) || (x_dump == x)) && ((y_dump == - 1) || (y_dump = y)) &&
+          ((z_dump = -1) || (z_dump == z))) dump_enable = true;
+  }
+  for (int k = 0; k < m_warp_count; k++) {
+      createWarp(k, dump_enable && ((w_dump == -1) || (w_dump == k)));
+  }
 }
 
 unsigned ThreadBlock::createThread(KernelInfo &kernel,
@@ -279,7 +288,7 @@ unsigned ThreadBlock::createThread(KernelInfo &kernel,
   }
 }
 
-void ThreadBlock::createWarp(unsigned warpId) {
+void ThreadBlock::createWarp(unsigned warpId, bool dump_enable) {
   std::function<dsm_access_ftype> dsm_read_func =
       [mem = this->m_shared_mem](uint64_t addr, size_t length, void* data) {
       mem->read(addr, length, data);
@@ -345,6 +354,7 @@ void ThreadBlock::createWarp(unsigned warpId) {
           mem_read_func, mem_write_func);
 
   WarpState *warp_state = m_Warp[warpId]->m_warp_state;
+  warp_state->init(warpId, m_block_state, m_thread);
 
   uint64_t warp_stack_pointer =
         m_kernel->state()->getLocalAddr() + m_kernel->state()->getLocalSize() * warpId;
@@ -410,12 +420,14 @@ void ThreadBlock::createWarp(unsigned warpId) {
     }
   }
 
-  std::string dump_file = "instdump_";
-  m_Warp[warpId]->m_warp_state->initDump(
+  if (dump_enable) {
+    std::string dump_file = "instdump_";
+    m_Warp[warpId]->m_warp_state->initDump(
           dump_file + "tb_" + std::to_string(m_block_state->get_cta_id().x) +
           "_" + std::to_string(m_block_state->get_cta_id().y) +
           "_" + std::to_string(m_block_state->get_cta_id().z) +
           "_warp_" + std::to_string(warpId) + ".log");
+  }
 
   m_Warp[warpId]->launch(m_thread[warpId * m_warp_size]->get_pc(), initialMask);
 
@@ -432,38 +444,60 @@ void ThreadBlock::createWarp(unsigned warpId) {
       m_thread[i]->update_pc();
     }
   }
-  m_liveThreadCount[warpId] = liveThreadsCount;
+  m_warp_live_thread[warpId] = liveThreadsCount;
+}
+
+static std::vector<uint32_t> GetWarpExecuteOrder(uint32_t warp_count) {
+    std::vector<uint32_t> warp_order(warp_count);
+    for (uint32_t i = 0; i < warp_count; i++) {
+        warp_order[i] = i;
+    }
+#if WARP_EXECUTE_RANDOM_ORDER
+    auto rng = std::default_random_engine {};
+    std::shuffle(std::begin(warp_order), std::end(warp_order), rng);
+#endif
+    return warp_order;
 }
 
 bool ThreadBlock::execute(uint32_t ctaid_cp) {
-  m_gpgpu_ctx->func_sim->cp_count = m_gpu->checkpoint_insn_Y;
-  m_gpgpu_ctx->func_sim->cp_cta_resume = m_gpu->checkpoint_CTA_t;
-  initializeCTA(ctaid_cp);
+    m_gpgpu_ctx->func_sim->cp_count = m_gpu->checkpoint_insn_Y;
+    m_gpgpu_ctx->func_sim->cp_cta_resume = m_gpu->checkpoint_CTA_t;
+    initializeCTA(ctaid_cp);
 
-  while (true) {
-    bool someOneLive = false;
-    bool allAtBarrier = true;
-    for (unsigned i = 0; i < m_warp_count; i++) {
-      executeWarp(i, allAtBarrier, someOneLive);
+    while (true) {
+        bool all_done = true;
+        bool allwarp_at_barrier = true;
+        for (unsigned warp_id : GetWarpExecuteOrder(m_warp_count)) {
+            if (m_warp_live_thread[warp_id]>0) { all_done = false;}
+            if (warp_is_blocking(warp_id) || warp_waiting_at_barrier(warp_id)) {
+                continue;
+            }
+            allwarp_at_barrier = false;
+            executeWarp(warp_id);
+            if (m_warp_live_thread[warp_id] == 0) {
+                m_block_state->removeWarp(warp_id);
+            }
+        }
+
+        if ((m_kernel->get_uid() == m_gpu->checkpoint_kernel) &&
+            (ctaid_cp >= m_gpu->checkpoint_CTA) &&
+            (ctaid_cp < m_gpu->checkpoint_CTA_t) && m_gpu->checkpoint_option == 1) {
+            all_done = true;
+            break;
+        }
+        if (all_done) break;
+        /*
+        if (allwarp_at_barrier) {
+            for (unsigned i = 0; i < m_warp_count; i++) m_warp_at_bar[i] = false;
+        }
+        */
     }
 
-    if ((m_kernel->get_uid() == m_gpu->checkpoint_kernel) &&
-        (ctaid_cp >= m_gpu->checkpoint_CTA) &&
-        (ctaid_cp < m_gpu->checkpoint_CTA_t) && m_gpu->checkpoint_option == 1) {
-      someOneLive = false;
-      break;
-    }
-    if (!someOneLive) break;
-    if (allAtBarrier) {
-      for (unsigned i = 0; i < m_warp_count; i++) m_warpAtBarrier[i] = false;
-    }
-  }
+    checkpoint *g_checkpoint;
+    g_checkpoint = new checkpoint();
 
-  checkpoint *g_checkpoint;
-  g_checkpoint = new checkpoint();
-
-  unsigned ctaid = m_kernel->get_next_cta_id_single();
-  if (m_gpu->checkpoint_option == 1 &&
+    unsigned ctaid = m_kernel->get_next_cta_id_single();
+    if (m_gpu->checkpoint_option == 1 &&
       (m_kernel->get_uid() == m_gpu->checkpoint_kernel) &&
       (ctaid_cp >= m_gpu->checkpoint_CTA) &&
       (ctaid_cp < m_gpu->checkpoint_CTA_t)) {
@@ -473,40 +507,39 @@ bool ThreadBlock::execute(uint32_t ctaid_cp) {
     g_checkpoint->store_global_mem(m_thread[0]->m_shared_mem, fname,
                                    (char *)"%08x");
 #endif
-    for (int i = 0; i < 32 * m_warp_count; i++) {
-      char fname[2048];
-      snprintf(fname, 2048, "checkpoint_files/thread_%d_%d_reg.txt", i,
+        for (int i = 0; i < 32 * m_warp_count; i++) {
+            char fname[2048];
+            snprintf(fname, 2048, "checkpoint_files/thread_%d_%d_reg.txt", i,
                ctaid - 1);
-      m_thread[i]->set_done();
-      m_thread[i]->exitCore();
-      m_thread[i]->registerExit();
-    }
+            m_thread[i]->set_done();
+            m_thread[i]->exitCore();
+            m_thread[i]->registerExit();
+        }
 
-    for (int i = 0; i < m_warp_count; i++) {
-      char fname[2048];
-      snprintf(fname, 2048, "checkpoint_files/warp_%d_%d_simt.txt", i,
+        for (int i = 0; i < m_warp_count; i++) {
+            char fname[2048];
+            snprintf(fname, 2048, "checkpoint_files/warp_%d_%d_simt.txt", i,
                ctaid - 1);
-      FILE *fp = fopen(fname, "w");
-      assert(fp != NULL);
-      m_Warp[i]->print_checkpoint(fp);
-      fclose(fp);
+            FILE *fp = fopen(fname, "w");
+            assert(fp != NULL);
+            m_Warp[i]->print_checkpoint(fp);
+            fclose(fp);
+        }
     }
-  }
-  return true;
+    return true;
 }
 
-void ThreadBlock::executeWarp(unsigned warpId, bool &allAtBarrier,
-                                    bool &someOneLive) {
-  if (!m_warpAtBarrier[warpId] && m_liveThreadCount[warpId] != 0) {
-    std::shared_ptr<Instruction> inst = getExecuteWarp(warpId);
-    executeInstruction(inst, warpId);
+void ThreadBlock::executeWarp(unsigned warp_id) {
+    std::shared_ptr<Instruction> inst = getExecuteWarp(warp_id);
+    executeInstruction(inst, warp_id);
     // FIXME if (inst->isatomic()) inst->do_atomic(true);
+    /*
     if (inst->GetOpType() == opu_op_t::BARRIER_OP || inst->GetOpType() == opu_op_t::MEMORY_BARRIER_OP)
-      m_warpAtBarrier[warpId] = true;
-    updateSIMTStack(warpId, inst);
-  }
-  if (m_liveThreadCount[warpId] > 0) someOneLive = true;
-  if (!m_warpAtBarrier[warpId] && m_liveThreadCount[warpId] > 0) allAtBarrier = false;
+    {
+      m_warp_at_bar[warpId] = true;
+    }
+    */
+    updateSIMTStack(warp_id, inst);
 }
 
 void ThreadBlock::warp_exit(unsigned warp_id) {
@@ -518,15 +551,20 @@ void ThreadBlock::warp_exit(unsigned warp_id) {
     }
   }
 }
+bool ThreadBlock::warp_is_blocking( unsigned warp_id ) const {
+  bool is_blocking = m_Warp[warp_id]->m_warp_state->isBlocking();
+  return is_blocking;
+}
+
 bool ThreadBlock::warp_waiting_at_barrier( unsigned warp_id ) const
 {
-  return (m_warpAtBarrier[warp_id] || !(m_liveThreadCount[warp_id]>0));
+  return (m_block_state->m_warp_at_bar[warp_id] || !(m_warp_live_thread[warp_id]>0));
 }
 
 void ThreadBlock::checkExecutionStatusAndUpdate(shared_ptr<Instruction> &inst, unsigned t, unsigned tid)
 {
   if(m_thread[tid]==NULL || m_thread[tid]->is_done()){
-        m_liveThreadCount[tid/m_warp_size]--;
+    m_warp_live_thread[tid/m_warp_size]--;
   }
 }
 

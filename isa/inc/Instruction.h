@@ -16,7 +16,6 @@
 #include "common.h"
 
 class HwOp;
-extern int g_debug_exec;
 
 #define DEFINSTEND(_fmt)
 #define DEFINST2(_name)
@@ -606,7 +605,7 @@ class Instruction {
         printf("decode: %s(%lx), size=%d, op_type=%d ", getOpStr(info.op).c_str(), info.op, m_size, getOpType(info.op));
     }
     virtual void Issue(WarpState *w) {
-        if (g_debug_exec >= 1) {
+        if (w->isDumpEnable()) {
             std::stringstream ss;
             ss << "[PC=" << pc << "]: " << getOpStr(info.op).c_str();
             if (not asm_print_order_.empty()) {
@@ -639,7 +638,7 @@ class Instruction {
         */
     }
     virtual void OperandCollect(WarpState *w) {
-        if (g_debug_exec >= 1) {
+        if (w->isDumpEnable()) {
             std::stringstream ss;
             std::string ident;
             ss << "\n  OC:";
@@ -675,7 +674,7 @@ class Instruction {
             Operand::OperandName name = Operand::GetDstOperand(i);
             operands_[name]->writeReg(w);
         }
-        if (g_debug_exec >= 1) {
+        if (w->isDumpEnable()) {
             std::stringstream ss;
             ss << "  WB:";
             std::string ident;
@@ -686,6 +685,7 @@ class Instruction {
                 operands_[name]->dumpReg(ss, w);
             }
             w->out() << ss.str();
+            if (num_dst_operands == 0) w->out() << "\n";
         }
     };
     virtual void Execute(WarpState *item, uint32_t lane_id = 0) = 0;

@@ -27,8 +27,8 @@ public:
 
   virtual ~ThreadBlock(){
     // warp_exit(0);
-    delete[] m_liveThreadCount;
-    delete[] m_warpAtBarrier;
+    delete[] m_warp_live_thread;
+    // delete[] m_warp_at_bar;
     delete m_block_state;
     delete m_hwop;
     // delete m_kernel;
@@ -38,12 +38,13 @@ public:
   //! executes all warps till completion
   bool execute(uint32_t ctaid_cp);
   void warp_exit( unsigned warp_id );
+  bool warp_is_blocking( unsigned warp_id ) const;
   bool warp_waiting_at_barrier( unsigned warp_id ) const;
   void executeInstruction(std::shared_ptr<Instruction> inst, unsigned warpId);
   void checkExecutionStatusAndUpdate(std::shared_ptr<Instruction> &inst, unsigned t, unsigned tid);
 
 public:
-  void executeWarp(unsigned, bool &, bool &);
+  void executeWarp(unsigned);
   //initializes threads in the CTA block which we are executing
   void initializeCTA(unsigned ctaid_cp);
 
@@ -55,11 +56,10 @@ public:
                              libcuda::gpgpu_t *gpu, bool isInFunctionalSimulationMode);
 
   // lunches the stack and set the threads count
-  void  createWarp(unsigned warpId);
+  void  createWarp(unsigned warpId, bool dump_enable);
 
   //each warp live thread count and barrier indicator
-  unsigned * m_liveThreadCount;
-  bool* m_warpAtBarrier;
+  unsigned * m_warp_live_thread;
 
   ThreadItem** m_thread;
 

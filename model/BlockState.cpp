@@ -9,12 +9,16 @@
 #include "../../libcuda/cuda-sim/memory.h"
 #include "../../libcuda/gpgpu_context.h"
 #include "inc/HwOp.h"
+#include "common/string_utils.h"
 
 BlockState::BlockState(CUResource *cu_res, uint32_t bar_count)
     : m_resource(cu_res)
     , m_bar_count(bar_count)
 {
     m_bar_slot.resize(bar_count);
+    m_bar_status.resize(bar_count);
+    m_bar_expected.resize(bar_count);
+    m_bar_counter.resize(bar_count);
     initBar(bar_count);
 }
 
@@ -23,12 +27,17 @@ void BlockState::destroy() {
     m_resource->freeRunningBlock();
 }
 
-void BlockState::init(gpgpu_context *ctx, dim3 cta_id) {
-  m_uid = (ctx->g_ptx_cta_info_uid)++;
-  // FIXME, use real kernel bar requirment num
-  m_bar_threads = 0;
-  m_cta_id = cta_id;
-  gpgpu_ctx = ctx;
+void BlockState::init(gpgpu_context *ctx, dim3 cta_id, uint32_t block_warp_count) {
+    m_uid = (ctx->g_ptx_cta_info_uid)++;
+    // FIXME, use real kernel bar requirment num
+    m_bar_threads = 0;
+    m_cta_id = cta_id;
+    gpgpu_ctx = ctx;
+    m_block_warp_count = block_warp_count;
+    m_warp_at_bar =  new bool [block_warp_count];
+    for (int i = 0; i < m_block_warp_count; i++) {
+        m_warp_at_bar[i] = false;
+    }
 }
 
 void BlockState::add_thread( ThreadItem *thd )
@@ -139,7 +148,54 @@ void BlockState::popc_reduction(unsigned barid, bool value) {
 void BlockState::initBar(uint32_t bar_slot_count) {
     for (int i = 0; i < bar_slot_count; i++) {
         m_bar_slot[i] = 0;
+        m_bar_status[i] = SyncInitial;
+        m_bar_expected[i] = 0;
+        m_bar_counter[i] = 0;
     }
 }
 
+void BlockState::removeWarp(uint32_t warp_id) {
+    m_block_warp_count--;
+    for (uint32_t i = 0; i < m_bar_count; i++) {
+        if (m_bar_status[i] == SyncWorking) {
+            arriveBar(i, warp_id);
+        }
+    }
+};
+
+void BlockState::removeWarpAtBar() {
+    for (int i = 0; i < m_block_warp_count; i++) {
+        m_warp_at_bar[i] = false;
+    }
+}
+
+bool BlockState::arriveBar(uint32_t slot, uint32_t warp_id, uint32_t warp_count) {
+    CHECK(slot > m_bar_count, "slot %d is large than expected %d\n", slot, m_bar_count);
+    if (m_bar_status[slot] == SyncArrived) {
+        return false;
+    }
+    m_bar_expected[slot] = warp_count;
+    m_bar_counter[slot]++;
+    uint32_t expected = m_bar_expected[slot] == 0 ? m_block_warp_count : m_bar_expected[slot];
+    if (m_bar_counter[slot] == expected) {
+        m_bar_status[slot] = SyncArrived;
+        removeWarpAtBar();
+    } else {
+        m_bar_status[slot] = SyncWorking;
+        m_warp_at_bar[warp_id] = true;
+    }
+    return true;
+};
+
+bool BlockState::waitBar(uint32_t slot, bool blocking) {
+    if (not blocking) {
+        if (m_bar_status[slot] == SyncWorking) {
+            return false;
+        } else if (m_bar_status[slot] == SyncInitial) {
+            return true;
+        }
+    // } else {
+        // m_blocking = true;
+    }
+}
 

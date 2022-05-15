@@ -187,6 +187,7 @@ public:
   KernelInfo *get_parent() { return m_parent_kernel; }
 
   uint32_t kernel_ctrl() { return m_kernel_ctrl; }
+  uint32_t bar_used() { return m_bar_used; }
 
   std::map<unsigned, ParamInfo> m_kernel_param_info;
   int m_args_aligned_size;
@@ -208,5 +209,6 @@ public:
   unsigned long long end_cycle;
   KernelState*  m_state;
   uint32_t m_kernel_ctrl;
+  uint32_t m_bar_used;
 };
 

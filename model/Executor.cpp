@@ -9,6 +9,7 @@
 
 extern int  libcuda::g_debug_execution;
 int g_debug_exec;
+int g_debug_dump;
 
 extern "C" IsaSim* make_isasim(libcuda::gpgpu_t* gpu, libcuda::gpgpu_context *ctx) {
   IsaSim* sim = new IsaSim(gpu, ctx);
@@ -83,6 +84,7 @@ parameter which holds the data for the CUDA kernel to be executed
 void IsaSim::launch(DispatchInfo *disp_info, unsigned kernel_uid, bool openCL) {
   KernelInfo *kernel = new KernelInfo(disp_info);
   uint32_t kernel_ctrl = kernel->kernel_ctrl();
+  uint32_t bar_used = kernel->bar_used();
   // when kerneInfo is setup, it will fill kernel const buffer
   // param_addr
   // local_mem_addr
@@ -155,6 +157,7 @@ void IsaSim::launch(DispatchInfo *disp_info, unsigned kernel_uid, bool openCL) {
   int cp_kernel = m_ctx->the_gpgpusim->g_the_gpu->checkpoint_kernel;
   cp_cta_resume = m_ctx->the_gpgpusim->g_the_gpu->checkpoint_CTA_t;
   int max_cta_per_core = m_ctx->the_gpgpusim->g_the_gpu->getShaderCoreConfig()->max_cta_per_core;
+  int warp_size = m_ctx->the_gpgpusim->g_the_gpu->getShaderCoreConfig()->warp_size;
   int cta_launched = 0;
 
   std::mutex scheduler_mutex_;
@@ -174,14 +177,14 @@ void IsaSim::launch(DispatchInfo *disp_info, unsigned kernel_uid, bool openCL) {
         kernel->get_uid() < cp_kernel)  // just fro testing
     {
 
-      BlockState* block_state = BlockState::GetBlockState(MAX_BARRIERS_PER_CTA);
+      BlockState* block_state = BlockState::GetBlockState(bar_used);
       // if (block_state == nullptr) { continue; }
-      block_state->init(m_ctx, cta_id);
+      block_state->init(m_ctx, cta_id, kernel->threads_per_cta() / warp_size);
 
       ThreadBlock *cta = new ThreadBlock(
         m_gpu, kernel, m_ctx,
         block_state,
-        m_ctx->the_gpgpusim->g_the_gpu->getShaderCoreConfig()->warp_size,
+        warp_size,
         kernel->threads_per_cta(),
         cta_id,
         const_reg_num);

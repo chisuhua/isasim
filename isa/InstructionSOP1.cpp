@@ -111,7 +111,7 @@ void INST::S_SWAPPC_B64(WarpState *item, uint32_t lane_id)
 
 	// Write the results
 	// Store the data in the destination register
-	WriteSReg(OPCODE.sdst, item->getWarpPC() + 4);
+	WriteSReg(OPCODE.sdst, item->getWarpPC(lane_id) + 4);
 	// Store the data in the destination register
 	WriteSReg(OPCODE.sdst + 1, 0);
 

@@ -15,7 +15,7 @@ void INST::Decode(uint64_t _opcode) {
     bytes.dword = _opcode;
     info.op = OPCODE.op;
     is_VOP1 = true;
-	if (OPCODE.ext.e0_.ext_enc == COMMON_ENC_ext_enc) {
+	if (OPCODE.ext.e0_.ext_enc == COMMON_ENC_ext1_enc) {
 		m_size = 8;
 	} else {
         bytes.word[1] = 0;
@@ -39,9 +39,13 @@ void INST::Decode(uint64_t _opcode) {
     }
 
     // FIXME m_size == 8
-    if (OPCODE.imm_ == 0x3) {
-        operands_[Operand::SRC0] = std::make_shared<Operand>(Operand::SRC0,
-                uint32_t(OPCODE.dsrc0_ << COMMON_ENC_max_src0_32e_width + OPCODE.src0));
+    if (OPCODE.imm_ == 0x1) {
+        uint32_t imm =  (OPCODE.dsrc0_ << COMMON_ENC_max_src0_32e_width) + OPCODE.src0;
+        if (m_size == 8) {
+            imm |= OPCODE.ext.e1_.imm << (COMMON_ENC_max_src0_32e_width  + 2);
+        }
+        operands_[Operand::SRC0] = std::make_shared<Operand>(Operand::SRC0, imm);
+
     } else if (OPCODE.dsrc0_ == COMMON_ENC_dsrc0_l) {
 	    int stride = 4;
         operands_[Operand::SRC0] = std::make_shared<Operand>(Operand::SRC0,
@@ -74,12 +78,6 @@ void INST::OperandCollect(WarpState *w) {
 
 void INST::WriteBack(WarpState *w) {
     Instruction::WriteBack(w);
-}
-
-// Do nothing
-void INST::V_NOP(WarpState *item, uint32_t lane_id)
-{
-	// Do nothing
 }
 
 // D.u = S0.u.

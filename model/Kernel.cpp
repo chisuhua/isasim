@@ -52,9 +52,10 @@ KernelInfo::KernelInfo(DispatchInfo *disp_info) {
   m_state->setParamAddr(disp_info->kernel_param_addr);
   m_state->setParamSize(disp_info->kernel_param_size);
   m_state->setProgAddr(disp_info->kernel_prog_addr);
-  m_state->setLocalAddr(disp_info->local_mem_addr);
-  m_state->setLocalSize(disp_info->local_mem_size);
+  m_state->setLocalAddr(disp_info->private_mem_addr);
+  m_state->setLocalSize(disp_info->private_memsize);
   m_kernel_ctrl = disp_info->kernel_ctrl;
+  m_bar_used = disp_info->bar_used;
   // m_local_mem_size = disp_info.local_mem_size;
   // m_uid = (entry->gpgpu_ctx->kernel_info_m_next_uid)++;
 
