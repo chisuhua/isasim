@@ -72,9 +72,9 @@ public:
   // unsigned getSregUint(int sreg_id) const;
   // void setSregUint(int id, unsigned int value);
 
-  addr_t GetWarpPC() { return m_PC;}
-  void SetWarpPC(unsigned pc) { m_PC = pc; }
-  void IncWarpPC(int increment) { m_PC += increment; }
+  // addr_t GetWarpPC() { return m_PC;}
+  // void SetWarpPC(unsigned pc) { m_PC = pc; }
+  // void IncWarpPC(int increment) { m_PC += increment; }
 
   void SetFinished(bool finished) { this->finished = finished; }
 

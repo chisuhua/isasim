@@ -25,15 +25,7 @@ public:
           BlockState *block_state,
           unsigned warp_size, unsigned threads_per_shader, dim3 cta_id, uint32_t kernel_const_reg_num);
 
-  virtual ~ThreadBlock(){
-    // warp_exit(0);
-    delete[] m_warp_live_thread;
-    // delete[] m_warp_at_bar;
-    delete m_block_state;
-    delete m_hwop;
-    // delete m_kernel;
-    // free(m_thread);
-  }
+  virtual ~ThreadBlock();
 
   //! executes all warps till completion
   bool execute(uint32_t ctaid_cp);
@@ -92,7 +84,7 @@ public:
   libcuda::gpgpu_t *m_gpu;
   KernelInfo *m_kernel;
   Warp **m_Warp;  // pdom based reconvergence context for each warp
-  HwOp *m_hwop;
+  FunUnit *m_funit;
   unsigned m_warp_size;
   unsigned m_warp_count;
   // unsigned reduction_storage[MAX_CTA_PER_SHADER][MAX_BARRIERS_PER_CTA];
@@ -107,5 +99,8 @@ public:
 
   libcuda::memory_space *m_shared_mem;
   libcuda::memory_space *m_global_mem;
+
+  std::string m_dump_tb_name;
+  bool m_dump_enable = false;
 };
 

@@ -1,6 +1,6 @@
 #include "inc/Instruction.h"
 #include "inc/InstructionCommon.h"
-// #include "common/utils.h"
+#include "common/string_utils.h"
 
 #define OPCODE bytes.SOPP
 #define INST InstructionSOPP
@@ -9,7 +9,12 @@ void INST::Decode(uint64_t _opcode) {
     bytes.dword = _opcode;
     info.op = OPCODE.op;
     bytes.word[1] = 0;
-	m_size = 4;
+	if (OPCODE.ext.e0_.ext_enc == COMMON_ENC_ext1_enc) {
+		m_size = 8;
+	} else {
+        bytes.word[1] = 0;
+		m_size = 4;
+    }
     m_is_warp_op = true;
 
     num_dst_operands = 0;
@@ -29,7 +34,7 @@ void INST::Decode(uint64_t _opcode) {
 
     if (OPCODE.op <= OpcodeSOPP::S_BRANCH) {
         operands_[Operand::SRC0] = std::make_shared<Operand>(Operand::SRC0,
-                uint32_t(OPCODE.simm12));
+	            internal::sign_ext(OPCODE.simm12, COMMON_ENC_max_simm12_width));
 
         if (OPCODE.op <= OpcodeSOPP::T_CBRANCH_EXECNZ) {
             operands_[Operand::SRC1] = std::make_shared<Operand>(Operand::SRC1,
@@ -74,6 +79,7 @@ void INST::S_BRANCH(WarpState *item, uint32_t lane_id)
 	// Load the short constant operand and sign extend into an integer.
 	se_simm = simm.as_int;
 
+
 	// Relative jump
 	// item->incWarpPC(se_simm * 4 + 4 - m_size, lane_id);
 	item->incWarpPC(se_simm, lane_id);
@@ -88,7 +94,7 @@ void INST::T_CBRANCH_TCCZ(WarpState *item, uint32_t lane_id)
 	se_simm = simm.as_int;
 
 	Register cc = operands_[Operand::SRC1]->getValue();
-	if (!cc.as_uint)
+	if (!(cc.as_uint & (1 << lane_id)))
 	{
 	    se_simm = simm.as_int;
 
@@ -107,7 +113,7 @@ void INST::T_CBRANCH_TCCNZ(WarpState *item, uint32_t lane_id)
 	se_simm = simm.as_int;
 
 	Register cc = operands_[Operand::SRC1]->getValue();
-	if (cc.as_uint)
+	if (cc.as_uint & (1 << lane_id))
 	{
 	    se_simm = simm.as_int;
 
@@ -125,7 +131,7 @@ void INST::S_CBRANCH_SCCZ(WarpState *item, uint32_t lane_id)
 	se_simm = simm.as_int;
 
 	Register cc = operands_[Operand::SRC1]->getValue();
-	if (!cc.as_uint)
+	if (!(cc.as_uint & (1 << lane_id)))
 	{
 	    se_simm = simm.as_int;
 
@@ -143,7 +149,7 @@ void INST::S_CBRANCH_SCCNZ(WarpState *item, uint32_t lane_id)
 	se_simm = simm.as_int;
 
 	Register cc = operands_[Operand::SRC1]->getValue();
-	if (cc.as_uint)
+	if (cc.as_uint & (1 << lane_id))
 	{
 	    se_simm = simm.as_int;
 

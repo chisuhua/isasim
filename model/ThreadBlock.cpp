@@ -9,7 +9,7 @@
 //#include "../../libcuda/abstract_hardware_model.h"
 #include "../../libcuda/cuda-sim/memory.h"
 #include "../../libcuda/gpgpu_context.h"
-#include "inc/HwOp.h"
+#include "inc/FunUnit.h"
 
 extern int g_debug_exec;
 
@@ -36,7 +36,18 @@ ThreadBlock::ThreadBlock(libcuda::gpgpu_t *gpu, KernelInfo* kernel, libcuda::gpg
 
     initilizeSIMTStack(m_warp_count, m_warp_size);
     m_warp_live_thread = new unsigned [m_warp_count];
-    m_hwop = new HwOp();
+    m_funit = new FunUnit();
+}
+
+ThreadBlock::~ThreadBlock(){
+    m_funit->dumpVCD(m_dump_tb_name);
+    // warp_exit(0);
+    delete[] m_warp_live_thread;
+    // delete[] m_warp_at_bar;
+    delete m_block_state;
+    delete m_funit;
+    // delete m_kernel;
+    // free(m_thread);
 }
 
 
@@ -103,12 +114,11 @@ shared_ptr<Instruction> ThreadBlock::getInstruction(address_type pc) {
         // uint64_t opcode = *(uint64_t*)(pc_address);
         uint64_t opcode;
         m_gpu->get_global_memory()->read(pc_address, 8, &opcode);
+        printf("IFETCH PC=%4ld(%lx): opcode %lx\n", pc, pc_address, opcode);
         // printf("make instrction PC=%lx for opcode %lx\n", pc, opcode);
-        m_insts[pc] = make_instruction(opcode, m_hwop);
-        m_insts[pc]->print();
-        m_insts[pc]->Decode(opcode);
+        m_insts[pc] = make_instruction(opcode, m_funit);
         m_insts[pc]->pc = pc;
-        printf("IFETCH PC=%lx(%lx): opcode %lx\n", pc, pc_address, opcode);
+        m_insts[pc]->Decode(opcode);
         m_insts[pc]->print();
         return m_insts[pc];
     }
@@ -205,14 +215,17 @@ void ThreadBlock::initializeCTA(uint32_t ctaid_cp) {
 
   const char *tbid = getenv("ISASIM_DUMP");
   int32_t x_dump, y_dump, z_dump, w_dump;
-  bool dump_enable = false;
   if (tbid) {
       sscanf(tbid, "%d:%d:%d:%d", &x_dump, &y_dump, &z_dump, &w_dump);
-      if (((x_dump = -1) || (x_dump == x)) && ((y_dump == - 1) || (y_dump = y)) &&
-          ((z_dump = -1) || (z_dump == z))) dump_enable = true;
+      if (((x_dump == -1) || (x_dump == x)) && ((y_dump == - 1) || (y_dump == y)) &&
+          ((z_dump == -1) || (z_dump == z))) m_dump_enable = true;
+
+      m_dump_tb_name = "tb_" + std::to_string(m_block_state->get_cta_id().x) +
+          "_" + std::to_string(m_block_state->get_cta_id().y) +
+          "_" + std::to_string(m_block_state->get_cta_id().z);
   }
   for (int k = 0; k < m_warp_count; k++) {
-      createWarp(k, dump_enable && ((w_dump == -1) || (w_dump == k)));
+      createWarp(k, m_dump_enable && ((w_dump == -1) || (w_dump == k)));
   }
 }
 
@@ -423,10 +436,7 @@ void ThreadBlock::createWarp(unsigned warpId, bool dump_enable) {
   if (dump_enable) {
     std::string dump_file = "instdump_";
     m_Warp[warpId]->m_warp_state->initDump(
-          dump_file + "tb_" + std::to_string(m_block_state->get_cta_id().x) +
-          "_" + std::to_string(m_block_state->get_cta_id().y) +
-          "_" + std::to_string(m_block_state->get_cta_id().z) +
-          "_warp_" + std::to_string(warpId) + ".log");
+          dump_file + m_dump_tb_name + "_warp_" + std::to_string(warpId) + ".log");
   }
 
   m_Warp[warpId]->launch(m_thread[warpId * m_warp_size]->get_pc(), initialMask);

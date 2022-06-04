@@ -25,23 +25,55 @@ void INST::Decode(uint64_t _opcode) {
         data_reg_range = 2;
     }
 
+    if (m_size == 8) {
+        makeOperand(Operand::SRC0,
+                Reg(OPCODE.vaddr | (OPCODE.ext.e2_.vaddr << COMMON_ENC_max_vaddr_32e_width),
+                    addr_reg_range, OPCODE.ssrc0_ == 1? Reg::Scalar : Reg::Vector));
+        makeOperand(Operand::SRC1,
+                (uint32_t)OPCODE.offset | (OPCODE.ext.e2_.imm << COMMON_ENC_max_vdst_32e_width));
+    } else {
+        makeOperand(Operand::SRC0,
+                Reg(OPCODE.vaddr, addr_reg_range, OPCODE.ssrc0_ == 1? Reg::Scalar : Reg::Vector));
+        makeOperand(Operand::SRC1, (uint32_t)OPCODE.offset);
+    }
+/*
     operands_[Operand::SRC0] = std::make_shared<Operand>(Operand::SRC0,
                 Reg(OPCODE.vaddr, addr_reg_range, OPCODE.ssrc0_ == 1? Reg::Scalar : Reg::Vector));
-
     operands_[Operand::SRC1] = std::make_shared<Operand>(Operand::SRC0,
                 (uint32_t)OPCODE.offset);
-
+*/
     if (info.op == OpcodeVLS::V_STORE_U8 ||
         info.op == OpcodeVLS::V_STORE_U16 ||
         info.op == OpcodeVLS::V_STORE_U32) {
         num_dst_operands = 0;
         num_src_operands = 3;
+
+        if (m_size == 8) {
+            makeOperand(Operand::SRC2,
+                Reg(OPCODE.vdata | (OPCODE.ext.e2_.vdata << COMMON_ENC_max_vdata_32e_width),
+                    data_reg_range, Reg::Vector));
+        } else {
+            makeOperand(Operand::SRC2,
+                Reg(OPCODE.vdata, data_reg_range, Reg::Vector));
+        }
+        /*
         operands_[Operand::SRC2] = std::make_shared<Operand>( Operand::SRC2,
                 Reg(OPCODE.vdata, data_reg_range, Reg::Vector));
+        */
         asm_print_order_ = {Operand::SRC2, Operand::SRC0, Operand::SRC1};
     } else {
+        if (m_size == 8) {
+            makeOperand(Operand::DST,
+                Reg(OPCODE.vdata | (OPCODE.ext.e2_.vdata << COMMON_ENC_max_vdata_32e_width),
+                    data_reg_range, Reg::Vector));
+        } else {
+            makeOperand(Operand::DST,
+                Reg(OPCODE.vdata, data_reg_range, Reg::Vector));
+        }
+        /*
         operands_[Operand::DST] = std::make_shared<Operand>( Operand::DST,
                 Reg(OPCODE.vdata, data_reg_range, Reg::Vector));
+        */
     }
 }
 

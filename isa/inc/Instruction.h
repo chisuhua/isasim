@@ -15,7 +15,7 @@
 #include <htl/decoupled.h>
 #include "common.h"
 
-class HwOp;
+class FunUnit;
 
 #define DEFINSTEND(_fmt)
 #define DEFINST2(_name)
@@ -163,7 +163,7 @@ public:
     }
     bool isValid() {return is_valid_;}
     bool isImm() {return is_imm_;}
-    uint32_t getImm() {return imm_.as_uint;}
+    int32_t getImm() {return imm_.as_int;}
 
     reg_t getRegValue(int32_t lane_id = -1) {
         if (is_imm_) {
@@ -602,7 +602,7 @@ class Instruction {
 
     virtual void Decode(uint64_t _opcode) = 0;
     virtual void print() {
-        printf("decode: %s(%lx), size=%d, op_type=%d ", getOpStr(info.op).c_str(), info.op, m_size, getOpType(info.op));
+        printf("decode: %s(%lx), size=%d, op_type=%d\n", getOpStr(info.op).c_str(), info.op, m_size, getOpType(info.op));
     }
     virtual void Issue(WarpState *w) {
         if (w->isDumpEnable()) {
@@ -803,7 +803,7 @@ class Instruction {
 
   addr_t pc;  // program counter address of instruction
   op_type_t op_type_;       // opcode (uarch visible)
-  HwOp    *hw_op_;       // cash wrapper
+  FunUnit    *funit_;       // cash wrapper
 
   barrier_type_t bar_type;
   reduction_type_t red_type;
@@ -955,7 +955,7 @@ class Instruction##_fmt : public Instruction {                     \
 
 //	        (inst->InstFuncTable)[_opcode] = &Instruction##_fmt_str::_name; 
 
-std::shared_ptr<Instruction> make_instruction(uint64_t _opcode, HwOp*);
+std::shared_ptr<Instruction> make_instruction(uint64_t _opcode, FunUnit*);
 
 #if 0
 class WarpInst {
@@ -976,6 +976,6 @@ public:
 };
 #endif
 
+void dsrc0_Decode(Instruction* inst, uint32_t imm_, uint32_t dsrc0_, uint32_t src0,
+        uint32_t size, uint32_t ext_imm, uint32_t src0_ext, uint32_t reg_range, Operand::OperandName);
 
-void dsrc0_Decode(Instruction* inst, uint32_t imm_, uint32_t dsrc0_, uint32_t src0, \
-        uint32_t reg_range = 1, Operand::OperandName = Operand::SRC0);

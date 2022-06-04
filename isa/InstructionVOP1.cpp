@@ -29,15 +29,19 @@ void INST::Decode(uint64_t _opcode) {
         info.op == OpcodeVOP1::V_CVT_F64_F32 ||
         info.op == OpcodeVOP1::V_CVT_F64_U32 ||
         info.op == OpcodeVOP1::V_SEXT_I64_I32 ||
+        info.op == OpcodeVOP1::V_ZEXT_B64_B32 ||
         info.op == OpcodeVOP1::V_CVTA_SHARED_TO_FLAT
         ) {
         dst_reg_range = 2;
     }
 
-    if (info.op == OpcodeVOP1::V_CVT_F32_F64) {
+    if (info.op == OpcodeVOP1::V_CVT_F32_F64 ||
+        info.op == OpcodeVOP1::V_CVTA_SHARED_TO_FLAT) {
         src_reg_range = 2;
     }
 
+    dsrc0_Decode(this, OPCODE.imm_, OPCODE.dsrc0_, OPCODE.src0, m_size, OPCODE.ext.e1_.imm, OPCODE.ext.e2_.src0, src_reg_range, Operand::SRC0);
+#if 0
     // FIXME m_size == 8
     if (OPCODE.imm_ == 0x1) {
         uint32_t imm =  (OPCODE.dsrc0_ << COMMON_ENC_max_src0_32e_width) + OPCODE.src0;
@@ -64,7 +68,14 @@ void INST::Decode(uint64_t _opcode) {
 
     operands_[Operand::DST] = std::make_shared<Operand>( Operand::DST,
                 Reg(OPCODE.vdst, dst_reg_range, Reg::Vector));
-
+#endif
+    if (m_size == 8) {
+        makeOperand(Operand::DST,
+                Reg(OPCODE.vdst | (OPCODE.ext.e1_.vdst << COMMON_ENC_max_vdst_32e_width),
+                    dst_reg_range, Reg::Vector));
+    } else {
+        makeOperand(Operand::DST, Reg(OPCODE.vdst, dst_reg_range, Reg::Vector));
+    }
 }
 
 void INST::print() {

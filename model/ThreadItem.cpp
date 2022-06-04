@@ -22,7 +22,9 @@ void ThreadItem::Execute(shared_ptr<Instruction> inst, WarpState *warp_state)
 {
   addr_t pc = next_instr();
 
-  set_npc(pc + inst->GetSize());
+  if (not inst->is_warp_op()) {
+    set_npc(pc + inst->GetSize());
+  }
 
   try {
     clearRPC();
@@ -33,6 +35,7 @@ void ThreadItem::Execute(shared_ptr<Instruction> inst, WarpState *warp_state)
     }
     if (inst->is_warp_op() & !this->is_leading_thread()) {
     } else {
+        warp_state->incWarpPC(inst->GetSize(), m_laneId);
         inst->Execute(warp_state, m_laneId);
     }
     // Run exit instruction if exit option included

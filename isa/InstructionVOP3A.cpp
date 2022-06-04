@@ -553,29 +553,6 @@ void INST::V_MAX_F64(WarpState *item, uint32_t lane_id)
 	ISAUnimplemented(item);
 }
 
-// D.u = S0.u * S1.u.
-void INST::V_MUL_LO_U32(WarpState *item, uint32_t lane_id)
-{
-	Register s0;
-	Register s1;
-	Register result;
-
-	assert(!OPCODE.clamp);
-	assert(!OPCODE.omod);
-	assert(!OPCODE.neg);
-	assert(!OPCODE.abs);
-
-	// Load operands from registers.
-	s0.as_uint = ReadReg(OPCODE.src0);
-	s1.as_uint = ReadReg(OPCODE.src1);
-
-	// Calculate the product.
-	result.as_uint = s0.as_uint * s1.as_uint;
-
-	// Write the results.
-	WriteVReg(OPCODE.vdst, result.as_uint, lane_id);
-
-}
 
 /*
  *D.d = Special case divide FMA with scale and flags(s0.d = Quotient, s1.d = Denominator,
@@ -592,56 +569,6 @@ void INST::V_TRIG_PREOP_F64(WarpState *item, uint32_t lane_id)
 }
  */
 
-// D.u = (S0.u * S1.u)>>32
-void INST::V_MUL_HI_U32(WarpState *item, uint32_t lane_id)
-{
-	Register s0;
-	Register s1;
-	Register result;
-
-	assert(!OPCODE.clamp);
-	assert(!OPCODE.omod);
-	assert(!OPCODE.neg);
-	assert(!OPCODE.abs);
-
-	// Load operands from registers.
-	s0.as_uint = ReadReg(OPCODE.src0);
-	s1.as_uint = ReadReg(OPCODE.src1);
-
-	// Calculate the product and shift right.
-	result.as_uint = (unsigned)
-		(((unsigned long long)s0.as_uint *
-		(unsigned long long)s1.as_uint) >> 32);
-
-	// Write the results.
-	WriteVReg(OPCODE.vdst, result.as_uint, lane_id);
-
-}
-
-// D.i = S0.i * S1.i.
-void INST::V_MUL_LO_I32(WarpState *item, uint32_t lane_id)
-{
-	Register s0;
-	Register s1;
-	Register result;
-
-	assert(!OPCODE.clamp);
-	assert(!OPCODE.omod);
-	assert(!OPCODE.neg);
-	assert(!OPCODE.abs);
-
-	// Load operands from registers.
-	s0.as_uint = ReadReg(OPCODE.src0);
-	s1.as_uint = ReadReg(OPCODE.src1);
-
-	// Calculate the product.
-	result.as_int = s0.as_int * s1.as_int;
-
-
-	// Write the results.
-	WriteVReg(OPCODE.vdst, result.as_uint, lane_id);
-
-}
 
 // D.f = S0.f - floor(S0.f).
 void INST::V_FRACT_F32_VOP3A(WarpState *item, uint32_t lane_id)

@@ -63,10 +63,12 @@ isa_link_args = link_args + ['-L' + DESIGN_ROOT + '/cosim', '-lcudart', '-lcash'
 isa_inc = [
   'isa',
   'model',
+  'hwop',
   DESIGN_ROOT + '/opu/coasm',
   DESIGN_ROOT + '/opu/umd',
   DESIGN_ROOT + '/libcuda',
   DESIGN_ROOT + '/opu/3rdparty/cash/include',
+  DESIGN_ROOT + '/opu/3rdparty/cash/soft-ieee754/includes',
   CUDA_INSTALL_PATH + '/include'
   ]
 
@@ -90,7 +92,8 @@ isa_src = [
   #'isa/MemoryImpl.cc',
   #'isa/Mmio.cpp',
   #'isa/Warp.cpp',
-  'isa/HwOp.cpp',
+  'hwop/IAlu.cpp',
+  'hwop/FunUnit.cpp',
   'isa/Instruction.cpp',
   'isa/InstructionDLS.cpp',
   'isa/InstructionSLS.cpp',

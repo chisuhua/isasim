@@ -390,14 +390,18 @@ uint64_t WarpState::getWarpPC(uint32_t lane_id) {
 //  FIXME modify to use real warp PC
 void WarpState::setWarpPC(uint64_t pc) {
     for (uint32_t lane = 0; lane < m_warp_size; lane++) {
-        getThread(lane)->set_pc(pc);
+        if (m_active_mask.test(lane)) {
+            getThread(lane)->set_pc(pc);
+        }
     }
 }
 
 void WarpState::incWarpPC(int increment, uint32_t lane_id) {
     uint32_t pc = getWarpPC(lane_id);
     for (uint32_t lane = 0; lane < m_warp_size; lane++) {
-        getThread(lane)->set_npc(pc + increment);
+        if (m_active_mask.test(lane)) {
+            getThread(lane)->set_npc(pc + increment);
+        }
     }
 }
 

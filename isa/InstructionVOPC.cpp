@@ -9,7 +9,7 @@ void INST::Decode(uint64_t _opcode) {
     info.op = OPCODE.op;
     is_VOPC = true;
 
-	if (OPCODE.ext.e0_.ext_enc == 0x7) {
+	if (OPCODE.ext.e0_.ext_enc == COMMON_ENC_ext1_enc) {
 		m_size = 8;
 	} else {
         bytes.word[1] = 0;
@@ -21,12 +21,25 @@ void INST::Decode(uint64_t _opcode) {
     uint32_t src1_reg_range = 1;
     uint32_t dst_reg_range = 1;
 
-    dsrc0_Decode(this, OPCODE.imm_, OPCODE.dsrc0_, OPCODE.src0, src0_reg_range);
+    dsrc0_Decode(this, OPCODE.imm_, OPCODE.dsrc0_, OPCODE.src0, m_size, OPCODE.ext.e1_.imm, OPCODE.ext.e1_.src0, src0_reg_range, Operand::SRC1);
 
-    operands_[Operand::SRC1] = std::make_shared<Operand>(Operand::SRC1,
+    if (m_size == 8) {
+        makeOperand(Operand::SRC0,
+                Reg(OPCODE.vsrc1 | (OPCODE.ext.e1_.vsrc1 << COMMON_ENC_max_vsrc1_32e_width),
+                    src0_reg_range, Reg::Vector));
+        makeOperand(Operand::DST,
+                Reg((OPCODE.tcc + RegisterTcc) | (OPCODE.ext.e1_.tcc << COMMON_ENC_max_tcc_32e_width),
+                    dst_reg_range, Reg::TCC));
+    } else {
+        makeOperand(Operand::SRC0, Reg(OPCODE.vsrc1, src0_reg_range, Reg::Vector));
+        makeOperand(Operand::DST, Reg(OPCODE.tcc + RegisterTcc, dst_reg_range, Reg::TCC));
+        /*
+        operands_[Operand::SRC1] = std::make_shared<Operand>(Operand::SRC1,
                 Reg(OPCODE.vsrc1, src1_reg_range, Reg::Vector));
-    operands_[Operand::DST] = std::make_shared<Operand>( Operand::DST,
+        operands_[Operand::DST] = std::make_shared<Operand>( Operand::DST,
                 Reg(OPCODE.tcc + RegisterTcc, dst_reg_range, Reg::TCC));
+                */
+    }
 }
 
 void INST::print() {

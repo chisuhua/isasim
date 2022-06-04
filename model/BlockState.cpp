@@ -8,7 +8,7 @@
 //#include "../../libcuda/abstract_hardware_model.h"
 #include "../../libcuda/cuda-sim/memory.h"
 #include "../../libcuda/gpgpu_context.h"
-#include "inc/HwOp.h"
+#include "inc/FunUnit.h"
 #include "common/string_utils.h"
 
 BlockState::BlockState(CUResource *cu_res, uint32_t bar_count)
