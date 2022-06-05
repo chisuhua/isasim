@@ -448,7 +448,7 @@ void INST::V_MOVRELS_B32(WarpState *item, uint32_t lane_id)
 void INST::V_SEXT_I32_I8(WarpState *w, uint32_t lane_id)
 {
 	// Load operand from register or as a literal constant.
-    reg_t x = operands_[Operand::SRC0]->getRegValue(lane_id);
+    isasim::reg_t x = operands_[Operand::SRC0]->getRegValue(lane_id);
     x = sext(x, 8);
 
     operands_[Operand::DST]->setValue(x, lane_id);
@@ -458,7 +458,7 @@ void INST::V_SEXT_I32_I8(WarpState *w, uint32_t lane_id)
 void INST::V_SEXT_I32_I16(WarpState *w, uint32_t lane_id)
 {
 	// Load operand from register or as a literal constant.
-    reg_t x = operands_[Operand::SRC0]->getRegValue(lane_id);
+    isasim::reg_t x = operands_[Operand::SRC0]->getRegValue(lane_id);
     x = sext(x, 16);
 
     operands_[Operand::DST]->setValue(x, lane_id);
@@ -468,7 +468,7 @@ void INST::V_SEXT_I32_I16(WarpState *w, uint32_t lane_id)
 void INST::V_SEXT_I64_I32(WarpState *w, uint32_t lane_id)
 {
 	// Load operand from register or as a literal constant.
-    reg_t x = operands_[Operand::SRC0]->getRegValue(lane_id);
+    isasim::reg_t x = operands_[Operand::SRC0]->getRegValue(lane_id);
     x = sext(x, 32);
 
     operands_[Operand::DST]->setValue(x, lane_id);
@@ -477,8 +477,8 @@ void INST::V_SEXT_I64_I32(WarpState *w, uint32_t lane_id)
 void INST::V_ZEXT_B32_B8(WarpState *w, uint32_t lane_id)
 {
 	// Load operand from register or as a literal constant.
-    reg_t x = operands_[Operand::SRC0]->getRegValue(lane_id);
-    x = zext(x, 8);
+    isasim::reg_t x = operands_[Operand::SRC0]->getRegValue(lane_id);
+    x = isasim::zext(x, 8);
 
     operands_[Operand::DST]->setValue(x, lane_id);
 }
@@ -486,8 +486,8 @@ void INST::V_ZEXT_B32_B8(WarpState *w, uint32_t lane_id)
 void INST::V_ZEXT_B32_B16(WarpState *w, uint32_t lane_id)
 {
 	// Load operand from register or as a literal constant.
-    reg_t x = operands_[Operand::SRC0]->getRegValue(lane_id);
-    x = zext(x, 16);
+    isasim::reg_t x = operands_[Operand::SRC0]->getRegValue(lane_id);
+    x = isasim::zext(x, 16);
 
     operands_[Operand::DST]->setValue(x, lane_id);
 }
@@ -495,8 +495,8 @@ void INST::V_ZEXT_B32_B16(WarpState *w, uint32_t lane_id)
 void INST::V_ZEXT_B64_B32(WarpState *w, uint32_t lane_id)
 {
 	// Load operand from register or as a literal constant.
-    reg_t x = operands_[Operand::SRC0]->getRegValue(lane_id);
-    x = zext(x, 32);
+    isasim::reg_t x = operands_[Operand::SRC0]->getRegValue(lane_id);
+    x = isasim::zext(x, 32);
 
     operands_[Operand::DST]->setValue(x, lane_id);
 }
@@ -504,7 +504,7 @@ void INST::V_ZEXT_B64_B32(WarpState *w, uint32_t lane_id)
 void INST::V_CHOP_B16_B32(WarpState *w, uint32_t lane_id)
 {
 	// Load operand from register or as a literal constant.
-    reg_t x = operands_[Operand::SRC0]->getRegValue(lane_id);
+    isasim::reg_t x = operands_[Operand::SRC0]->getRegValue(lane_id);
     x = chop(x, 16);
     operands_[Operand::DST]->setValue(x, lane_id);
 }
@@ -512,15 +512,15 @@ void INST::V_CHOP_B16_B32(WarpState *w, uint32_t lane_id)
 // D.i = (int)S0.d.
 void INST::V_CVTA_SHARED_TO_FLAT(WarpState *w, uint32_t lane_id)
 {
-    reg_t x = operands_[Operand::SRC0]->getRegValue(lane_id);
-    x.u64 = shared_to_generic(0, x.u64);
+    isasim::reg_t x = operands_[Operand::SRC0]->getRegValue(lane_id);
+    x.u64 = isasim::shared_to_generic(0, x.u64);
     operands_[Operand::DST]->setValue(x, lane_id);
 }
 
 void INST::V_CVTA_FLAT_TO_GLOBAL(WarpState *w, uint32_t lane_id)
 {
-    reg_t x = operands_[Operand::SRC0]->getRegValue(lane_id);
-    x.u64 = generic_to_global(x.u64);
+    isasim::reg_t x = operands_[Operand::SRC0]->getRegValue(lane_id);
+    x.u64 = isasim::generic_to_global(x.u64);
     operands_[Operand::DST]->setValue(x, lane_id);
 }
 

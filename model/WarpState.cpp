@@ -242,21 +242,21 @@ uint32_t WarpState::getConst(uint32_t addr) {
     return m_const_buffer[addr];
 }
 
-uint64_t WarpState::setupAddrSpace(uint64_t addr, mem_space_t::SpaceType &space) {
+uint64_t WarpState::setupAddrSpace(uint64_t addr, isasim::mem_space_t::SpaceType &space) {
 #if 0
     switch (space) {
-        case mem_space_t::param_local_space:
-        case mem_space_t::param_kernel_space:
+        case isasim::mem_space_t::param_local_space:
+        case isasim::mem_space_t::param_kernel_space:
             addr += m_param_addr;
             break;
-        case mem_space_t::local_space:
+        case isasim::mem_space_t::local_space:
             addr += m_local_mem_stack_pointer;
             break;
         default:
             break;
     }
 #endif
-    space = mem_space_t::global_space;
+    space = isasim::mem_space_t::global_space;
     return addr;
 };
 #if 0
@@ -291,32 +291,32 @@ uint64_t WarpState::calculateAddr(uint32_t vreg) {
 }
 
 
-void WarpState::writeDMEM(uint64_t addr, uint32_t length, void* value, mem_space_t::SpaceType space) {
+void WarpState::writeDMEM(uint64_t addr, uint32_t length, void* value, isasim::mem_space_t::SpaceType space) {
     addr = setupAddrSpace(addr, space);
     m_mem_write(addr, length, value, space);
 }
 
-void WarpState::readDMEM(uint64_t addr, uint32_t length, void* value, mem_space_t::SpaceType space) {
+void WarpState::readDMEM(uint64_t addr, uint32_t length, void* value, isasim::mem_space_t::SpaceType space) {
     addr = setupAddrSpace(addr, space);
     m_mem_read(addr, length, value, space);
 }
 
-void WarpState::writeSMEM(uint64_t addr, uint32_t length, void* value, mem_space_t::SpaceType space) {
+void WarpState::writeSMEM(uint64_t addr, uint32_t length, void* value, isasim::mem_space_t::SpaceType space) {
     addr = setupAddrSpace(addr, space);
     m_mem_write(addr, length, value, space);
 }
 
-void WarpState::readSMEM(uint64_t addr, uint32_t length, void* value, mem_space_t::SpaceType space) {
+void WarpState::readSMEM(uint64_t addr, uint32_t length, void* value, isasim::mem_space_t::SpaceType space) {
     addr = setupAddrSpace(addr, space);
     m_mem_read(addr, length, value, space);
 }
 
-void WarpState::writeVMEM(uint64_t addr, uint32_t length, void* value, mem_space_t::SpaceType space) {
+void WarpState::writeVMEM(uint64_t addr, uint32_t length, void* value, isasim::mem_space_t::SpaceType space) {
     addr = setupAddrSpace(addr, space);
     m_mem_write(addr, length, value, space);
 }
 
-void WarpState::readVMEM(uint64_t addr, uint32_t length, void* value, mem_space_t::SpaceType space) {
+void WarpState::readVMEM(uint64_t addr, uint32_t length, void* value, isasim::mem_space_t::SpaceType space) {
     addr = setupAddrSpace(addr, space);
     m_mem_read(addr, length, value, space);
 }
@@ -366,7 +366,7 @@ void WarpState::ReadBufferResource(
     uint32_t value[4];
     MemoryPointer mem_ptr;
     getSregMemPtr(sreg, mem_ptr);
-    m_mem_read(mem_ptr.addr, 4 * sizeof(uint32_t), (void*)&value[0], mem_space_t::undefined);
+    m_mem_read(mem_ptr.addr, 4 * sizeof(uint32_t), (void*)&value[0], isasim::mem_space_t::undefined);
 	// Buffer resource descriptor is stored in 4 succesive scalar registers
 	((uint32_t *) &buf_desc)[0] = value[0];
 	((uint32_t *) &buf_desc)[1] = value[1];

@@ -2,6 +2,8 @@
 #include "coasm_define.h"
 #include <cassert>
 
+namespace isasim {
+
 addr_t shared_to_generic(unsigned smid, addr_t addr) {
   assert(addr < _SHARED_MEM_SIZE_MAX);
   return _SHARED_GENERIC_START + smid * _SHARED_MEM_SIZE_MAX + addr;
@@ -55,3 +57,4 @@ addr_t generic_to_local(unsigned smid, unsigned hwtid, addr_t addr) {
 }
 
 
+}

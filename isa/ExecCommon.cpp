@@ -1,6 +1,7 @@
 #include "inc/ExecTypes.h"
 #include <cassert>
 
+namespace isasim {
 reg_t chop(reg_t x, unsigned to_width) {
   switch (to_width) {
     case 8:
@@ -44,3 +45,4 @@ reg_t sext(reg_t x, unsigned from_width) {
   return x;
 }
 
+}

@@ -146,14 +146,14 @@ void INST::V_LOAD_WORD(WarpState *item, uint32_t lane_id)
 #endif
 void load(Instruction* inst, WarpState* w, uint32_t size, uint32_t lane_id) {
     uint64_t addr = calculateAddr(inst, w, lane_id);
-    reg_t value;
+    isasim::reg_t value;
 	w->readVMEM(addr, size, &(value.u8));
     inst->operands_[Operand::DST]->setValue(value, lane_id);
 }
 
 void store(Instruction* inst, WarpState* w, uint32_t size, uint32_t lane_id) {
     uint64_t addr = calculateAddr(inst, w, lane_id);
-    reg_t value;
+    isasim::reg_t value;
     value.u32 = inst->operands_[Operand::SRC2]->getValue(lane_id).as_uint;
 	w->writeVMEM(addr, size, &(value.u8));
 }

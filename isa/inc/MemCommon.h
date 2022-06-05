@@ -1,6 +1,8 @@
 #pragma once
 #include "inc/ExecTypes.h"
 
+namespace isasim {
+
 class mem_space_t {
 public:
   enum SpaceType {
@@ -68,3 +70,5 @@ addr_t local_to_generic(unsigned smid, unsigned hwtid, addr_t addr) ;
 bool isspace_local(unsigned smid, unsigned hwtid, addr_t addr) ;
 addr_t generic_to_local(unsigned smid, unsigned hwtid, addr_t addr) ;
 inline addr_t generic_to_global(addr_t addr) { return addr; };
+
+}

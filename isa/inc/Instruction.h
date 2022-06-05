@@ -165,19 +165,19 @@ public:
     bool isImm() {return is_imm_;}
     int32_t getImm() {return imm_.as_int;}
 
-    reg_t getRegValue(int32_t lane_id = -1) {
+    isasim::reg_t getRegValue(int32_t lane_id = -1) {
         if (is_imm_) {
-            return reg_t(imm_.as_uint);
+            return isasim::reg_t(imm_.as_uint);
         }
         if (reg_.reg_type_ == Reg::Scalar ||
             reg_.reg_type_ == Reg::TCC
                 ) {
-            return reg_t(value_[0].as_uint);
+            return isasim::reg_t(value_[0].as_uint);
         } else if (reg_.reg_type_ == Reg::Vector ||
                     reg_.reg_type_ == Reg::Data
                 ) {
             assert(lane_id != -1);
-            return reg_t(vector_value_[0][lane_id].as_uint);
+            return isasim::reg_t(vector_value_[0][lane_id].as_uint);
         } else {
             assert(false || "TODO Operand getValue");
         }
@@ -222,7 +222,7 @@ public:
         }
     }
 
-    void setValue(reg_t value, int32_t lane_id = -1) {
+    void setValue(isasim::reg_t value, int32_t lane_id = -1) {
         assert(is_imm_ == false);
         if (reg_.reg_type_ == Reg::Scalar ||
             reg_.reg_type_ == Reg::TCC ) {

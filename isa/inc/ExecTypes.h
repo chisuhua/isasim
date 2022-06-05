@@ -10,6 +10,7 @@ typedef std::bitset<MAX_WARPSIZE> active_mask_t;
 typedef std::bitset<MAX_WARP_SIZE_SimtStack> simt_mask_t;
 typedef unsigned long long addr_t;
 
+namespace isasim {
 union reg_t {
   reg_t() {
     bits.ms = 0;
@@ -101,6 +102,7 @@ union reg_t {
   uint32_t reg[4];
   uint32_t pred : 4;
 };
+}
 /// 4-byte register
 union Register
 {

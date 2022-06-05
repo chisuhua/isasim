@@ -11,7 +11,7 @@
 class Instruction;
 class BlockState;
 class ThreadItem;
-using mem_access_ftype = void(uint64_t, size_t, void*, mem_space_t::SpaceType );
+using mem_access_ftype = void(uint64_t, size_t, void*, isasim::mem_space_t::SpaceType );
 using dsm_access_ftype = void(uint64_t, size_t, void*);
 
 class WarpState {
@@ -75,12 +75,12 @@ public:
 
 
 
-    void writeSMEM(uint64_t addr, uint32_t length, void *value, mem_space_t::SpaceType space = mem_space_t::undefined);
-    void readSMEM(uint64_t addr, uint32_t length, void* value, mem_space_t::SpaceType space = mem_space_t::undefined);
-    void writeDMEM(uint64_t addr, uint32_t length, void *value, mem_space_t::SpaceType space = mem_space_t::undefined);
-    void readDMEM(uint64_t addr, uint32_t length, void* value, mem_space_t::SpaceType space = mem_space_t::undefined);
-    void writeVMEM(uint64_t addr, uint32_t length, void *value, mem_space_t::SpaceType space = mem_space_t::undefined);
-    void readVMEM(uint64_t addr, uint32_t length, void* value, mem_space_t::SpaceType space = mem_space_t::undefined);
+    void writeSMEM(uint64_t addr, uint32_t length, void *value, isasim::mem_space_t::SpaceType space = isasim::mem_space_t::undefined);
+    void readSMEM(uint64_t addr, uint32_t length, void* value, isasim::mem_space_t::SpaceType space = isasim::mem_space_t::undefined);
+    void writeDMEM(uint64_t addr, uint32_t length, void *value, isasim::mem_space_t::SpaceType space = isasim::mem_space_t::undefined);
+    void readDMEM(uint64_t addr, uint32_t length, void* value, isasim::mem_space_t::SpaceType space = isasim::mem_space_t::undefined);
+    void writeVMEM(uint64_t addr, uint32_t length, void *value, isasim::mem_space_t::SpaceType space = isasim::mem_space_t::undefined);
+    void readVMEM(uint64_t addr, uint32_t length, void* value, isasim::mem_space_t::SpaceType space = isasim::mem_space_t::undefined);
 
     // void printSreg();
     // void printVreg() ;
@@ -93,7 +93,7 @@ public:
     void flush() { m_dump.flush();}
     bool isDumpEnable() {return m_dump_enable;}
 
-    uint64_t setupAddrSpace(uint64_t, mem_space_t::SpaceType &space);
+    uint64_t setupAddrSpace(uint64_t, isasim::mem_space_t::SpaceType &space);
     //MemoryPointer getVBaseAddr(uint32_t vreg, uint32_t lane_id); // call by VMEM
     MemoryPointer getDBaseAddr(uint32_t vreg, uint32_t lane_id); // call by DMEM
     MemoryPointer getSBaseAddr(uint32_t vreg); // call by SMEM

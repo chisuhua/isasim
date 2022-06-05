@@ -18,8 +18,12 @@ void INST::Decode(uint64_t _opcode) {
     uint32_t src2_reg_range = 1;
     uint32_t dst_reg_range = 1;
 
-    // if (info.op == OpcodeVOP3A::V_MADLO_I32_I32) {
-    // }
+    if (info.op == OpcodeVOP3A::V_CSEL_B64) {
+        dst_reg_range = 2;
+        src0_reg_range = 2;
+        src1_reg_range = 2;
+        src2_reg_range = 2;
+    }
     //
     makeOperand(Operand::SRC0, Reg(OPCODE.src1, src0_reg_range, Reg::Vector));
     makeOperand(Operand::SRC1, Reg(OPCODE.src2, src1_reg_range, Reg::Vector));
@@ -317,7 +321,7 @@ void INST::V_MAD_F32(WarpState *item, uint32_t lane_id)
 
 void INST::V_MADLO_I32_I32(WarpState *item, uint32_t lane_id)
 {
-	reg_t s0, s1, s2, dst;
+    isasim::reg_t s0, s1, s2, dst;
     s0 = operands_[Operand::SRC0]->getRegValue(lane_id);
     s1 = operands_[Operand::SRC1]->getRegValue(lane_id);
     s2 = operands_[Operand::SRC2]->getRegValue(lane_id);
@@ -1442,3 +1446,12 @@ void INST::V_LDEXP_F64(WarpState *item, uint32_t lane_id)
 	ISAUnimplemented(item);
 }
 
+void INST::V_CSEL_B32(WarpState *item, uint32_t lane_id)
+{
+	ISAUnimplemented(item);
+}
+
+void INST::V_CSEL_B64(WarpState *item, uint32_t lane_id)
+{
+	ISAUnimplemented(item);
+}

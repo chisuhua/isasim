@@ -314,19 +314,19 @@ void ThreadBlock::createWarp(unsigned warpId, bool dump_enable) {
   std::function<mem_access_ftype> mem_read_func =
       [mem_global = this->m_global_mem,
        mem_shared = this->m_shared_mem
-      ](uint64_t addr, size_t length, void* data, mem_space_t::SpaceType mem_space) {
+      ](uint64_t addr, size_t length, void* data, isasim::mem_space_t::SpaceType mem_space) {
       switch (mem_space) {
-        case mem_space_t::global_space:
-        case mem_space_t::const_space:
-        case mem_space_t::param_local_space:
-        case mem_space_t::param_kernel_space:
-        case mem_space_t::local_space:
+        case isasim::mem_space_t::global_space:
+        case isasim::mem_space_t::const_space:
+        case isasim::mem_space_t::param_local_space:
+        case isasim::mem_space_t::param_kernel_space:
+        case isasim::mem_space_t::local_space:
             mem_global->read(addr, length, data);
             break;
-        case mem_space_t::shared_space:
+        case isasim::mem_space_t::shared_space:
             mem_shared->read(addr, length, data);
             break;
-        case mem_space_t::generic_space:
+        case isasim::mem_space_t::generic_space:
             printf("Warnning, we need to check share space\n");
             mem_global->read(addr, length, data);
             break;
@@ -339,19 +339,19 @@ void ThreadBlock::createWarp(unsigned warpId, bool dump_enable) {
   std::function<mem_access_ftype> mem_write_func =
       [mem_global = this->m_global_mem,
        mem_shared = this->m_shared_mem
-      ](uint64_t addr, size_t length, void* data, mem_space_t::SpaceType mem_space) {
+      ](uint64_t addr, size_t length, void* data, isasim::mem_space_t::SpaceType mem_space) {
       switch (mem_space) {
-        case mem_space_t::global_space:
-        case mem_space_t::const_space:
-        case mem_space_t::param_local_space:
-        case mem_space_t::param_kernel_space:
-        case mem_space_t::local_space:
+        case isasim::mem_space_t::global_space:
+        case isasim::mem_space_t::const_space:
+        case isasim::mem_space_t::param_local_space:
+        case isasim::mem_space_t::param_kernel_space:
+        case isasim::mem_space_t::local_space:
             mem_global->write(addr, length, data, nullptr, nullptr);
             break;
-        case mem_space_t::shared_space:
+        case isasim::mem_space_t::shared_space:
             mem_shared->write(addr, length, data, nullptr, nullptr);
             break;
-        case mem_space_t::generic_space:
+        case isasim::mem_space_t::generic_space:
             printf("Warnning, we need to check share space\n");
             mem_global->write(addr, length, data, nullptr, nullptr);
             break;

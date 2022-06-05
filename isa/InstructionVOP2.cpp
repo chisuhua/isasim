@@ -209,10 +209,10 @@ void INST::V_MUL_I32_I24(WarpState *w, uint32_t lane_id)
 void INST::V_MUL_I64_I32(WarpState *w, uint32_t lane_id)
 {
     // Load operands from registers or as a literal constant.
-    reg_t s0 = operands_[Operand::SRC0]->getRegValue(lane_id);
-    reg_t s1 = operands_[Operand::SRC1]->getRegValue(lane_id);
+    isasim::reg_t s0 = operands_[Operand::SRC0]->getRegValue(lane_id);
+    isasim::reg_t s1 = operands_[Operand::SRC1]->getRegValue(lane_id);
 
-    reg_t dst;
+    isasim::reg_t dst;
     // Calculate the product.
     dst.i64 = s0.i32 * s1.i32;
 
@@ -536,7 +536,7 @@ void INST::V_ADD_I32(WarpState *w, uint32_t lane_id)
 // D.u = S0.u + S1.u, vcc = carry-out.
 void INST::V_ADD_I64(WarpState *w, uint32_t lane_id)
 {
-    reg_t s0, s1, sum, carry;
+    isasim::reg_t s0, s1, sum, carry;
 
     std::vector<Register> src0 = operands_[Operand::SRC0]->getValueX(lane_id);
     std::vector<Register> src1 = operands_[Operand::SRC1]->getValueX(lane_id);
@@ -708,7 +708,7 @@ void INST::V_CVT_PKRTZ_F16_F32(WarpState *w, uint32_t lane_id)
 // D = S0.u >> S1.u[4:0] (Arithmetic shift)
 void INST::V_ASHR_I64(WarpState *item, uint32_t lane_id)
 {
-    reg_t s0, value;
+    isasim::reg_t s0, value;
 
     std::vector<Register> src0 = operands_[Operand::SRC0]->getValueX(lane_id);
     Register s1 = operands_[Operand::SRC1]->getValue(lane_id);
@@ -738,7 +738,7 @@ void INST::V_ASHR_I64(WarpState *item, uint32_t lane_id)
 // D.d = S0.d + S1.d.
 void INST::V_ADD_F64(WarpState *item, uint32_t lane_id)
 {
-    reg_t s0, s1, value;
+    isasim::reg_t s0, s1, value;
 
     std::vector<Register> src0 = operands_[Operand::SRC0]->getValueX(lane_id);
     std::vector<Register> src1 = operands_[Operand::SRC1]->getValueX(lane_id);
@@ -839,7 +839,7 @@ void INST::V_ADD_F64(WarpState *item, uint32_t lane_id)
 void INST::V_LSHL_B64(WarpState *item, uint32_t lane_id)
 {
     // Input operands
-    reg_t s0, s1, dst;
+    isasim::reg_t s0, s1, dst;
 
     std::vector<Register> src0 = operands_[Operand::SRC0]->getValueX(lane_id);
     Register src1 = operands_[Operand::SRC1]->getValue(lane_id);
