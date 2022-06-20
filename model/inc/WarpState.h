@@ -189,7 +189,7 @@ public:
         return m_is_blocking;
     }
 
-    address_type get_return_pc(uint32_t lane_id) {
+    addr_t get_return_pc(uint32_t lane_id) {
         return m_callstack[lane_id].back().m_PC;
     }
 

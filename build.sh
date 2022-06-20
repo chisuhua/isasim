@@ -9,7 +9,7 @@ build_cash() {
 	if [ ! -d "build" ]; then
 		mkdir build && cd build && cmake -DPLUGIN=OFF -DCMAKE_BUILD_TYPE=Debug .. && make -j8 || exit 1
 	else
-		cd build && make -j8 || exit 1
+		cd build && make clean & make -j8 || exit 1
 	fi
 	cp lib/libcash.* $GEM5_ROOT/design/cosim/
 	popd
