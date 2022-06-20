@@ -3,6 +3,7 @@
 #include <memory>
 #include <fstream>
 #include <sstream>
+#include <list>
 #include <stdint.h>
 #include "inc/ExecTypes.h"
 #include "inc/MemCommon.h"
@@ -14,6 +15,27 @@ class ThreadItem;
 using mem_access_ftype = void(uint64_t, size_t, void*, isasim::mem_space_t::SpaceType );
 using dsm_access_ftype = void(uint64_t, size_t, void*);
 
+struct stack_entry {
+  stack_entry() {
+    m_PC = 0;
+    m_RPC = -1;
+    m_call_uid = 0;
+    m_valid = false;
+  }
+  stack_entry(unsigned pc, unsigned rpc,
+              unsigned call_uid) {
+    m_PC = pc;
+    m_RPC = rpc;
+    m_call_uid = call_uid;
+    m_valid = true;
+  }
+
+  bool m_valid;
+  unsigned m_PC;
+  unsigned m_RPC;
+  unsigned m_call_uid;
+};
+
 class WarpState {
     enum class WarpStatus {
         READY,
@@ -24,11 +46,11 @@ public:
 	WarpState(uint32_t sreg_num,
               uint32_t vreg_num,
               uint32_t warp_size,
-              uint32_t kernel_const_reg_num,
-              std::function<dsm_access_ftype> dsm_read,
-              std::function<dsm_access_ftype> dsm_write,
-              std::function<mem_access_ftype> mem_read,
-              std::function<mem_access_ftype> mem_write
+              uint32_t kernel_const_reg_num = 0,
+              std::function<dsm_access_ftype> dsm_read = nullptr,
+              std::function<dsm_access_ftype> dsm_write = nullptr,
+              std::function<mem_access_ftype> mem_read = nullptr,
+              std::function<mem_access_ftype> mem_write = nullptr
             )
     {
         m_sreg_num = sreg_num;
@@ -167,6 +189,10 @@ public:
         return m_is_blocking;
     }
 
+    address_type get_return_pc(uint32_t lane_id) {
+        return m_callstack[lane_id].back().m_PC;
+    }
+
     std::function<dsm_access_ftype> m_dsm_read;
     std::function<dsm_access_ftype> m_dsm_write;
     std::function<mem_access_ftype> m_mem_read;
@@ -192,6 +218,7 @@ public:
 
     WarpStatus *m_status;
     active_mask_t m_active_mask;
+    std::vector<std::list<stack_entry>> m_callstack;
     std::ofstream m_dump;
     bool m_dump_enable {false};
 

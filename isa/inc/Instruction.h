@@ -183,6 +183,25 @@ public:
         }
     }
 
+    int32_t getRegIdx(uint32_t reg_num) {
+        if (is_imm_) {
+            return -1;
+        }
+        if (reg_.reg_type_ == Reg::Scalar ||
+            reg_.reg_type_ == Reg::TCC
+                ) {
+            if (reg_num > reg_.range_) return -1;
+            return (reg_.reg_idx_ + reg_num);
+        } else if (reg_.reg_type_ == Reg::Vector ||
+                    reg_.reg_type_ == Reg::Data
+                ) {
+            if (reg_num > reg_.range_) return -1;
+            return (reg_.reg_idx_ + reg_num);
+        } else {
+            assert(false || "TODO Operand getValue");
+        }
+    }
+
     Register getValue(int32_t lane_id = -1) {
         if (is_imm_) {
             return imm_;
