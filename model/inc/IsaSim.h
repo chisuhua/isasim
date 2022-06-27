@@ -7,7 +7,7 @@ class gpgpu_context;
 class gpgpu_t;
 }
 
-class KernelInfo;
+class Kernel;
 
 /*!
  * This class functionally executes a kernel. It uses the basic data structures and procedures in core_t

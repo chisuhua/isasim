@@ -77,6 +77,7 @@ isa_src = [
   'common/debug.cpp',
   'model/Executor.cpp',
   'model/Kernel.cpp',
+  'model/KernelInfo.cpp',
   'model/Warp.cpp',
   'model/CUResource.cpp',
   'model/WarpState.cpp',

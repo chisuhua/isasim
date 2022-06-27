@@ -1,6 +1,8 @@
 #pragma once
 #include <stdint.h>
+#include <map>
 #include "inc/ExecTypes.h"
+#include "inc/ExecContext.h"
 
 // the const buffer is implemented in icache
 // it use same scalar encode, with higer 128 encoding space

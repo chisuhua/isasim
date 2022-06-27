@@ -66,7 +66,7 @@ This function simulates the CUDA code functionally, it takes a disp_info_t
 parameter which holds the data for the CUDA kernel to be executed
 !*/
 void IsaGem5Sim::launch(DispatchInfo &disp_info, unsigned kernel_uid, bool openCL) {
-  KernelInfo *kernel = new KernelInfo(disp_info);
+  Kernel *kernel = new Kernel(disp_info);
   checkpoint *g_checkpoint;
   g_checkpoint = new checkpoint();
 /*

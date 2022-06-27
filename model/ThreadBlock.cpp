@@ -13,7 +13,7 @@
 
 extern int g_debug_exec;
 
-ThreadBlock::ThreadBlock(libcuda::gpgpu_t *gpu, KernelInfo* kernel, libcuda::gpgpu_context *ctx, BlockState *block_state, unsigned warp_size, unsigned threads_per_shader, dim3 cta_id, uint32_t kernel_const_num)
+ThreadBlock::ThreadBlock(libcuda::gpgpu_t *gpu, Kernel* kernel, libcuda::gpgpu_context *ctx, BlockState *block_state, unsigned warp_size, unsigned threads_per_shader, dim3 cta_id, uint32_t kernel_const_num)
     : m_block_state(block_state)
     , m_warp_size(warp_size)
     , m_kernel(kernel)
@@ -229,7 +229,7 @@ void ThreadBlock::initializeCTA(uint32_t ctaid_cp) {
   }
 }
 
-unsigned ThreadBlock::createThread(KernelInfo &kernel,
+unsigned ThreadBlock::createThread(Kernel &kernel,
                              ThreadItem** thread_info, int sid,
                              unsigned tid, unsigned threads_left,
                              unsigned num_threads, ThreadBlock *tb,

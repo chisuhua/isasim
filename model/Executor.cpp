@@ -82,7 +82,7 @@ This function simulates the CUDA code functionally, it takes a disp_info_t
 parameter which holds the data for the CUDA kernel to be executed
 !*/
 void IsaSim::launch(DispatchInfo *disp_info, unsigned kernel_uid, bool openCL) {
-  KernelInfo *kernel = new KernelInfo(disp_info);
+  Kernel *kernel = new Kernel(disp_info);
   uint32_t kernel_ctrl = kernel->kernel_ctrl();
   uint32_t bar_used = kernel->bar_used();
   // when kerneInfo is setup, it will fill kernel const buffer

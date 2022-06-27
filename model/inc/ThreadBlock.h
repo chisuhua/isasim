@@ -21,7 +21,7 @@ class gpgpu_context;
  */
 class ThreadBlock {
 public:
-  ThreadBlock(libcuda::gpgpu_t *gpu, KernelInfo *kernel, libcuda::gpgpu_context *ctx,
+  ThreadBlock(libcuda::gpgpu_t *gpu, Kernel *kernel, libcuda::gpgpu_context *ctx,
           BlockState *block_state,
           unsigned warp_size, unsigned threads_per_shader, dim3 cta_id, uint32_t kernel_const_reg_num);
 
@@ -40,7 +40,7 @@ public:
   //initializes threads in the CTA block which we are executing
   void initializeCTA(unsigned ctaid_cp);
 
-  unsigned createThread(KernelInfo &kernel,
+  unsigned createThread(Kernel &kernel,
                              ThreadItem** thread_item, int sid,
                              unsigned tid, unsigned threads_left,
                              unsigned num_threads, ThreadBlock *tb,
@@ -82,7 +82,7 @@ public:
   std::map<address_type, std::shared_ptr<Instruction>> m_insts;
 
   libcuda::gpgpu_t *m_gpu;
-  KernelInfo *m_kernel;
+  Kernel *m_kernel;
   Warp **m_Warp;  // pdom based reconvergence context for each warp
   FunUnit *m_funit;
   unsigned m_warp_size;
