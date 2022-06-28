@@ -122,6 +122,10 @@ public:
 
   uint32_t kernel_ctrl() { return m_kernel_ctrl; }
   uint32_t bar_used() { return m_bar_used; }
+  uint32_t get_shared_memsize();
+  uint32_t get_prog_addr();
+  uint32_t get_vreg_used();
+  uint32_t get_sreg_used();
 
   std::string name() {};
 
@@ -139,5 +143,7 @@ public:
   KernelState*  m_state;
   uint32_t m_kernel_ctrl;
   uint32_t m_bar_used;
+  uint32_t m_shared_memsize;
+  uint32_t m_private_memsize;
   uint32_t m_kernel_TB_latency;
 };

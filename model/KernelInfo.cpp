@@ -36,6 +36,9 @@ KernelInfo::KernelInfo(DispatchInfo *disp_info) {
   m_state->setProgAddr(disp_info->kernel_prog_addr);
   m_state->setLocalAddr(disp_info->private_mem_addr);
   m_state->setLocalSize(disp_info->private_memsize);
+  m_state->setSharedSize(disp_info->shared_memsize);
+  m_state->setVRegUsed(disp_info->vregs);
+  m_state->setSRegUsed(disp_info->sregs);
   m_kernel_ctrl = disp_info->kernel_ctrl;
   m_bar_used = disp_info->bar_used;
   // m_local_mem_size = disp_info.local_mem_size;
@@ -113,4 +116,10 @@ void KernelInfo::increment_cta_id() {
 void KernelInfo::increment_thread_id() {
     increment_x_then_y_then_z(m_next_tid, m_block_dim);
 }
+
+uint32_t KernelInfo::get_shared_memsize() { return m_state->getSharedSize(); }
+uint32_t KernelInfo::get_prog_addr() { return m_state->getProgAddr(); }
+uint32_t KernelInfo::get_vreg_used() { return m_state->getVRegUsed(); }
+uint32_t KernelInfo::get_sreg_used() { return m_state->getSRegUsed(); }
+
 

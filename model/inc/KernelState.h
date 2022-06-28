@@ -81,6 +81,29 @@ public:
         m_local_size = local_size;
     }
 
+    uint64_t getSharedSize() {
+        return m_shared_size;
+    }
+
+    void setSharedSize(uint64_t shared_size) {
+        m_shared_size = shared_size;
+    }
+
+    uint32_t getVRegUsed() {
+        return m_vreg_used;
+    }
+
+    void setVRegUsed(uint32_t reg) {
+        m_vreg_used = reg;
+    }
+
+    uint32_t getSRegUsed() {
+        return m_sreg_used;
+    }
+
+    void setSRegUsed(uint32_t reg) {
+        m_sreg_used = reg;
+    }
 
 private:
     Status m_status;
@@ -90,6 +113,10 @@ private:
     uint64_t m_param_size;
     uint64_t m_local_addr;
     uint64_t m_local_size;
+    uint64_t m_shared_addr;
+    uint64_t m_shared_size;
+    uint32_t m_vreg_used;
+    uint32_t m_sreg_used;
     uint32_t *m_const_buffer;
     std::map<dim3, uint32_t[MAX_BARRIERS_PER_CTA]> reduction_storage;
 };
