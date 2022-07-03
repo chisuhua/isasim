@@ -11,6 +11,11 @@ void WarpState::init(uint32_t warp_id, BlockState* tb_state, ThreadItem** thd) {
     m_warp_id = warp_id;
     m_tb_state = tb_state;
     m_thread = thd;
+
+    m_sreg = new uint32_t[m_sreg_num];
+    m_vreg = new uint32_t[m_vreg_num*m_warp_size];
+    m_status = new WarpStatus[m_warp_size];
+
 	// Integer inline constants.
 #if 0
 	for(int i = 128; i < 193; i++)
