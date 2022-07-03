@@ -66,6 +66,7 @@ isa_inc = [
   'hwop',
   DESIGN_ROOT + '/opu/coasm',
   DESIGN_ROOT + '/opu/umd',
+  DESIGN_ROOT + '/opu/opusim/src',
   DESIGN_ROOT + '/libcuda',
   DESIGN_ROOT + '/opu/3rdparty/cash/include',
   DESIGN_ROOT + '/opu/3rdparty/cash/soft-ieee754/includes',

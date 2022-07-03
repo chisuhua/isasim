@@ -57,9 +57,6 @@ public:
         m_vreg_num = vreg_num;
         m_kernel_const_reg_num = kernel_const_reg_num;
         m_warp_size = warp_size;
-        m_sreg = new uint32_t[sreg_num];
-        m_vreg = new uint32_t[vreg_num*warp_size];
-        m_status = new WarpStatus[warp_size];
         m_dsm_read = dsm_read;
         m_dsm_write = dsm_write;
         m_mem_read = mem_read;
@@ -190,13 +187,9 @@ public:
     }
 
     addr_t get_return_pc(uint32_t lane_id) {
-        return m_callstack[lane_id].back().m_PC;
+        // return m_callstack[lane_id].back().m_PC;
+        return 0;
     }
-
-    std::function<dsm_access_ftype> m_dsm_read;
-    std::function<dsm_access_ftype> m_dsm_write;
-    std::function<mem_access_ftype> m_mem_read;
-    std::function<mem_access_ftype> m_mem_write;
 
     uint64_t m_local_mem_stack_pointer;
     uint64_t m_param_addr;
@@ -218,8 +211,6 @@ public:
 
     WarpStatus *m_status;
     active_mask_t m_active_mask;
-    std::vector<std::list<stack_entry>> m_callstack;
-    std::ofstream m_dump;
     bool m_dump_enable {false};
 
 private:
@@ -235,4 +226,12 @@ private:
     uint32_t m_warp_id;
     BlockState *m_tb_state;
     ThreadItem **m_thread;
+    std::ofstream m_dump;
+    std::function<dsm_access_ftype> m_dsm_read;
+    std::function<dsm_access_ftype> m_dsm_write;
+    std::function<mem_access_ftype> m_mem_read;
+    std::function<mem_access_ftype> m_mem_write;
+
+
+    // std::vector<std::list<stack_entry>> m_callstack;
 };

@@ -1,5 +1,6 @@
 #pragma once
 #include "inc/ExecTypes.h"
+#include "opuusim_base.h"
 #include <list>
 #include <cassert>
 
@@ -33,7 +34,7 @@ struct dim3
 #endif
 
 
-class KernelInfo {
+class KernelInfo : public gem5::KernelInfoBase {
 public:
   KernelInfo(DispatchInfo *disp_info);
   ~KernelInfo();
@@ -127,7 +128,7 @@ public:
   uint32_t get_vreg_used();
   uint32_t get_sreg_used();
 
-  std::string name() {};
+  // std::string name() {};
 
 private:
   KernelInfo * m_parent_kernel;
