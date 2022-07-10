@@ -123,12 +123,26 @@ public:
 
   uint32_t kernel_ctrl() { return m_kernel_ctrl; }
   uint32_t bar_used() { return m_bar_used; }
-  uint32_t get_shared_memsize();
+  uint32_t get_shared_memsize() const;
   uint32_t get_prog_addr();
-  uint32_t get_vreg_used();
+  uint32_t get_vreg_used() const;
   uint32_t get_sreg_used();
 
   // std::string name() {};
+
+//Jin: kernel timing
+public:
+  uint64_t launch_cycle;
+  uint64_t start_cycle;
+  uint64_t end_cycle;
+  mutable bool cache_config_set;
+
+  KernelState*  m_state;
+  uint32_t m_kernel_ctrl;
+  uint32_t m_bar_used;
+  // uint32_t m_shared_memsize;
+  // uint32_t m_private_memsize;
+  uint32_t m_kernel_TB_latency;
 
 private:
   KernelInfo * m_parent_kernel;
@@ -136,15 +150,4 @@ private:
   dim3 m_parent_tid;
   std::list<KernelInfo *> m_child_kernels; //child KernelInfo launched
 
-//Jin: kernel timing
-public:
-  unsigned long long launch_cycle;
-  unsigned long long start_cycle;
-  unsigned long long end_cycle;
-  KernelState*  m_state;
-  uint32_t m_kernel_ctrl;
-  uint32_t m_bar_used;
-  uint32_t m_shared_memsize;
-  uint32_t m_private_memsize;
-  uint32_t m_kernel_TB_latency;
 };

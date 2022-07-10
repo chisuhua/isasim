@@ -43,11 +43,13 @@ KernelInfo::KernelInfo(DispatchInfo *disp_info) :
   m_state->setSRegUsed(disp_info->sregs);
   m_kernel_ctrl = disp_info->kernel_ctrl;
   m_bar_used = disp_info->bar_used;
+  set_inst_base_vaddr(disp_info->kernel_prog_addr);
   // m_local_mem_size = disp_info.local_mem_size;
   // m_uid = (entry->gpgpu_ctx->kernel_info_m_next_uid)++;
 
   // Jin: parent and child kernel management for CDP
   m_parent_kernel = NULL;
+  m_kernel_TB_latency = 10;
 }
 
 KernelInfo::~KernelInfo() {
@@ -119,9 +121,9 @@ void KernelInfo::increment_thread_id() {
     increment_x_then_y_then_z(m_next_tid, m_block_dim);
 }
 
-uint32_t KernelInfo::get_shared_memsize() { return m_state->getSharedSize(); }
+uint32_t KernelInfo::get_shared_memsize() const { return m_state->getSharedSize(); }
 uint32_t KernelInfo::get_prog_addr() { return m_state->getProgAddr(); }
-uint32_t KernelInfo::get_vreg_used() { return m_state->getVRegUsed(); }
+uint32_t KernelInfo::get_vreg_used() const { return m_state->getVRegUsed(); }
 uint32_t KernelInfo::get_sreg_used() { return m_state->getSRegUsed(); }
 
 
