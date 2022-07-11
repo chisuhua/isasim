@@ -39,8 +39,8 @@ KernelInfo::KernelInfo(DispatchInfo *disp_info) :
   m_state->setLocalAddr(disp_info->private_mem_addr);
   m_state->setLocalSize(disp_info->private_memsize);
   m_state->setSharedSize(disp_info->shared_memsize);
-  m_state->setVRegUsed(disp_info->vregs);
-  m_state->setSRegUsed(disp_info->sregs);
+  m_state->setVRegUsed(disp_info->vreg_used);
+  m_state->setSRegUsed(disp_info->sreg_used);
   m_kernel_ctrl = disp_info->kernel_ctrl;
   m_bar_used = disp_info->bar_used;
   set_inst_base_vaddr(disp_info->kernel_prog_addr);
