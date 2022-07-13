@@ -445,6 +445,48 @@ public:
 
 class Instruction {
   public:
+  addr_t pc;  // program counter address of instruction
+  op_type_t op_type_;       // opcode (uarch visible)
+  FunUnit    *funit_;       // cash wrapper
+
+  barrier_type_t bar_type;
+  reduction_type_t red_type;
+  unsigned bar_id;
+  unsigned bar_count;
+
+  RDMode rd_mode;
+
+  // types_of_operands_t oprnd_type;  // code (uarch visible) identify if the
+                                 // operation is an interger or a floating point
+  // special_ops_t sp_op;  // code (uarch visible) identify if int_alu, fp_alu, int_mul ....
+  // operation_pipeline op_pipe;  // code (uarch visible) identify the pipeline of
+                               // the operation (SP, SFU or MEM)
+  // mem_operation mem_op;        // code (uarch visible) identify memory type
+  // _memory_op_t memory_op;      // memory_op used by ptxplus
+  unsigned num_src_operands;
+  unsigned num_dst_operands;
+  unsigned num_regs;  // count vector operand as one register operand
+  std::vector<std::shared_ptr<Operand>> operands_;
+  std::map<std::string, std::shared_ptr<Operand>> operands_alias_;
+
+  addr_t reconvergence_pc;  // -1 => not a branch, -2 => use function
+                                  // return address
+  int pred;  // predicate register number
+  // int ar1, ar2;
+  // register number for bank conflict evaluation
+  /*
+  struct {
+    int dst[MAX_REG_OPERANDS];
+    int src[MAX_REG_OPERANDS];
+  } arch_reg;
+  */
+  // int arch_reg[MAX_REG_OPERANDS]; // register number for bank conflict
+  // evaluation
+  unsigned latency;  // operation latency
+  unsigned initiation_interval;
+
+  unsigned data_size;  // what is the size of the word being operated on?
+
 	enum Format
 	{
 		OpcodeInvalid = 0,
@@ -814,38 +856,7 @@ class Instruction {
   std::shared_ptr<Operand> getOperand(std::string&& name) {
       return operands_alias_[name];
   }
-  // uint32_t getOperandAddr(OperandName operand_name) {
-  //    return operand_addr[operand_name];
-  //};
 
-
-
-  addr_t pc;  // program counter address of instruction
-  op_type_t op_type_;       // opcode (uarch visible)
-  FunUnit    *funit_;       // cash wrapper
-
-  barrier_type_t bar_type;
-  reduction_type_t red_type;
-  unsigned bar_id;
-  unsigned bar_count;
-
-  RDMode rd_mode;
-
-  // types_of_operands_t oprnd_type;  // code (uarch visible) identify if the
-                                 // operation is an interger or a floating point
-  // special_ops_t sp_op;  // code (uarch visible) identify if int_alu, fp_alu, int_mul ....
-  // operation_pipeline op_pipe;  // code (uarch visible) identify the pipeline of
-                               // the operation (SP, SFU or MEM)
-  // mem_operation mem_op;        // code (uarch visible) identify memory type
-  // _memory_op_t memory_op;      // memory_op used by ptxplus
-  unsigned num_src_operands;
-  unsigned num_dst_operands;
-  unsigned num_regs;  // count vector operand as one register operand
-  std::vector<std::shared_ptr<Operand>> operands_;
-  std::map<std::string, std::shared_ptr<Operand>> operands_alias_;
-
-  addr_t reconvergence_pc;  // -1 => not a branch, -2 => use function
-                                  // return address
 /*
   unsigned out[8];
   unsigned outcount;
@@ -854,21 +865,6 @@ class Instruction {
   unsigned char is_vectorin;
   unsigned char is_vectorout;
 */
-  int pred;  // predicate register number
-  // int ar1, ar2;
-  // register number for bank conflict evaluation
-  /*
-  struct {
-    int dst[MAX_REG_OPERANDS];
-    int src[MAX_REG_OPERANDS];
-  } arch_reg;
-  */
-  // int arch_reg[MAX_REG_OPERANDS]; // register number for bank conflict
-  // evaluation
-  unsigned latency;  // operation latency
-  unsigned initiation_interval;
-
-  unsigned data_size;  // what is the size of the word being operated on?
   // memory_space_t space;
   // cache_operator_type cache_op;
 
@@ -974,7 +970,7 @@ class Instruction##_fmt : public Instruction {                     \
 
 //	        (inst->InstFuncTable)[_opcode] = &Instruction##_fmt_str::_name; 
 
-std::shared_ptr<Instruction> make_instruction(uint64_t _opcode, FunUnit*);
+std::shared_ptr<Instruction> make_instruction(uint64_t _opcode, FunUnit* funit = nullptr);
 
 #if 0
 class WarpInst {

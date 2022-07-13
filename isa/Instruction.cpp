@@ -22,7 +22,7 @@ std::shared_ptr<Instruction> make_instruction(uint64_t _opcode, FunUnit *funit)
 #define DEFEND(_fmt)
 #define DEFFMT(_fmt, _fmt_str, _enc)                                \
     } else if (opcode._fmt.enc == _enc) {                           \
-        inst = Instruction##_fmt::make_instruction(_opcode);
+        inst = std::dynamic_pointer_cast<Instruction>(Instruction##_fmt::make_instruction(_opcode));
 #include <opcodes.def>
 #undef DEFINST
 #undef DEFFMT

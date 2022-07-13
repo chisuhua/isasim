@@ -99,12 +99,10 @@ void INST::V_ADD_F32(WarpState *w, uint32_t lane_id)
     Register sum;
 
     //if (lane_id == 0)
+    if (funit_ != nullptr)
         sum.as_uint = funit_->add_f32(s0.as_uint, s1.as_uint);
-    //else
-    //    sum.as_uint = lane_id;
-
-    // Calculate the sum.
-    // sum.as_float = s0.as_float + s1.as_float;
+    else
+        sum.as_float = s0.as_float + s1.as_float;
 
     // Write the results.
     operands_[Operand::DST]->setValue(sum, lane_id);
