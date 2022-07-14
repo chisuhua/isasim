@@ -15,6 +15,7 @@ void INST::Decode(uint64_t _opcode) {
     bytes.dword = _opcode;
     info.op = OPCODE.op;
     is_VOP1 = true;
+    m_decoded = true;
 	if (OPCODE.ext.e0_.ext_enc == COMMON_ENC_ext1_enc) {
 		m_size = 8;
 	} else {

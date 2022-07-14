@@ -8,6 +8,7 @@ void INST::Decode(uint64_t _opcode) {
     bytes.dword = _opcode;
     info.op = OPCODE.op;
     m_is_warp_op = true;
+    m_decoded = true;
 	/* Only one source field may use a literal constant,
 	 * which is indicated by 0xFF. */
 	if (bytes.SOPC.ssrc0 == 0xFF ||

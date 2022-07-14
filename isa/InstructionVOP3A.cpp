@@ -10,6 +10,7 @@ void INST::Decode(uint64_t _opcode) {
     bytes.dword = _opcode;
     info.op = OPCODE.op;
     m_size = 8;
+    m_decoded = true;
 
     num_dst_operands = 1;
     num_src_operands = 3;

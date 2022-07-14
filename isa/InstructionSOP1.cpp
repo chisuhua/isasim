@@ -10,6 +10,7 @@ void INST::Decode(uint64_t _opcode) {
     bytes.dword = _opcode;
     info.op = OPCODE.op;
     m_is_warp_op = true;
+    m_decoded = true;
 
 	if (OPCODE.ext.e0_.ext_enc == 0x7) {
 		m_size = 8;

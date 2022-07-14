@@ -10,6 +10,7 @@ void INST::Decode(uint64_t _opcode) {
     bytes.word[1] = 0;
 	m_size = 4;
     m_is_warp_op = true;
+    m_decoded = true;
 }
 
 void INST::print() {
