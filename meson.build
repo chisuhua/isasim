@@ -30,9 +30,9 @@ pre_args = [
 extra_cpp_args = ['-Wall', '-std=c++17']
 
 if buildtype == 'release'
-  extra_cpp_args += ['-O3', '-g', '-Wno-strict-aliasing', '-msse4.1', '-flto']
+  extra_cpp_args += ['-O3', '-g', '-Wno-strict-aliasing', '-flto']
 else
-  extra_cpp_args += ['-O0', '-g', '-Wno-strict-aliasing', '-msse4.1']
+  extra_cpp_args += ['-O0', '-g', '-Wno-strict-aliasing']
 endif
 
 extra_c_args = extra_cpp_args
@@ -58,18 +58,19 @@ message('DESIGN_ROOT is ' + DESIGN_ROOT)
 message('GEM5_ROOT is ' + GEM5_ROOT)
 message('CUDA_INSTALL_PATH is ' + CUDA_INSTALL_PATH)
 
-isa_link_args = link_args + ['-L' + DESIGN_ROOT + '/cosim', '-lcudart', '-lcash' ] + ['-Wl,--version-script='+model_symbol_list]
-#isa_link_args += ['-L' + DESIGN_ROOT + '/opu/3rdparty/cash/build/lib', '-lcash']
+isa_link_args = link_args + ['-L' + DESIGN_ROOT + '/cosim'] + ['-Wl,--version-script='+model_symbol_list]
+isa_link_args += ['-L' + DESIGN_ROOT + '/src/opu/3rdparty/cash/build/lib', '-lcash']
+#isa_link_args += ['-L' + DESIGN_ROOT + '/src/libcuda', '-lcudart']
 isa_inc = [
   'isa',
   'model',
   'hwop',
-  DESIGN_ROOT + '/opu/coasm',
-  DESIGN_ROOT + '/opu/umd',
-  DESIGN_ROOT + '/opu/opusim/src',
-  DESIGN_ROOT + '/libcuda',
-  DESIGN_ROOT + '/opu/3rdparty/cash/include',
-  DESIGN_ROOT + '/opu/3rdparty/cash/soft-ieee754/includes',
+  DESIGN_ROOT + '/src/opu/coasm',
+  DESIGN_ROOT + '/src/opu/umd',
+  DESIGN_ROOT + '/src/opu/opusim/src',
+  DESIGN_ROOT + '/src/libcuda',
+  DESIGN_ROOT + '/src/opu/3rdparty/cash/include',
+  DESIGN_ROOT + '/src/opu/3rdparty/cash/soft-ieee754/includes',
   CUDA_INSTALL_PATH + '/include'
   ]
 

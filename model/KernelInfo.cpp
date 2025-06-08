@@ -22,8 +22,8 @@ void increment_x_then_y_then_z( dim3 &i, const dim3 &bound)
 }
 
 
-KernelInfo::KernelInfo(DispatchInfo *disp_info) :
-    KernelInfoBase()
+KernelInfo::KernelInfo(DispatchInfo *disp_info) 
+//: KernelInfoBase()
 {
   m_grid_dim = {disp_info->grid_dim_x, disp_info->grid_dim_y, disp_info->grid_dim_z};
   m_block_dim = {disp_info->block_dim_x, disp_info->block_dim_y, disp_info->block_dim_z};

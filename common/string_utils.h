@@ -6,6 +6,9 @@
 #include <unordered_map>
 #include <stdexcept>
 #include <assert.h>
+#include <limits>
+#include <cstdint>
+#include <algorithm>
 #include "macros.h"
 
 namespace internal {

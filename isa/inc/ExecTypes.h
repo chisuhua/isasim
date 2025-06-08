@@ -1,6 +1,7 @@
 #pragma once
 #include "coasm_define.h"
 #include <bitset>
+#include <cstdint>
 
 const uint32_t MAX_WARPSIZE = 32;
 #define MAX_WARP_SIZE_SimtStack MAX_WARPSIZE

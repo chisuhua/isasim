@@ -1,6 +1,6 @@
 #pragma once
 #include "inc/ExecTypes.h"
-#include "opuusim_base.h"
+//#include "opuusim_base.h"
 #include <list>
 #include <cassert>
 
@@ -34,7 +34,7 @@ struct dim3
 #endif
 
 
-class KernelInfo : public gem5::KernelInfoBase {
+class KernelInfo /*: public gem5::KernelInfoBase*/ {
 public:
   KernelInfo(DispatchInfo *disp_info);
   ~KernelInfo();
